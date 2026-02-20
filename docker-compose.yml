@@ -1,0 +1,28 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: final_project_db  # NEW NAME
+    restart: always
+    environment:
+      POSTGRES_USER: superuser        # NEW USER
+      POSTGRES_PASSWORD: finalpassword # NEW PASSWORD
+      POSTGRES_DB: final_inventory    # NEW DB NAME
+    ports:
+      - "5435:5432"                   # NEW PORT
+    volumes:
+      - final_pg_data:/var/lib/postgresql/data # NEW VOLUME
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: final_project_admin # NEW NAME
+    restart: always
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@final.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5055:80"                     # NEW PORT
+    depends_on:
+      - db
+
+volumes:
+  final_pg_data:                      # NEW VOLUME STORAGE
