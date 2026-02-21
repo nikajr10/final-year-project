@@ -3,6 +3,8 @@ from sentence_transformers import SentenceTransformer
 from app.db.session import engine, SessionLocal
 from app.db.models import Base, Product
 from sqlalchemy import text
+from app.core.security import get_password_hash
+from app.db.models import User
 
 def init_db():
     print("⏳ Connecting to Database...")
@@ -58,6 +60,22 @@ def init_db():
         
         db.commit()
         print(f"🎉 Success! {len(items)} items inserted into the Database.")
+        
+        
+        # --- SEED ADMIN USER ---
+        print("👤 Seeding Admin User...")
+        admin_user = db.query(User).filter(User.email == "user@user.com").first()
+        if not admin_user:
+            admin_user = User(
+                username="user",
+                email="user@user.com",
+                hashed_password=get_password_hash("user"),
+                role="admin"
+            )
+            db.add(admin_user)
+            db.commit()
+            print("✅ Admin user seeded successfully! (user@user.com / user)")
+        
 
     except Exception as e:
         print(f"❌ Error: {e}")
@@ -67,3 +85,7 @@ def init_db():
 
 if __name__ == "__main__":
     init_db()
+    
+    
+    
+    

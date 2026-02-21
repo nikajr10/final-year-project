@@ -26,3 +26,13 @@ class VoiceLog(Base):
     original_text = Column(Text)       # What Whisper heard
     corrected_intent = Column(String)  # What Llama extracted (ADD/REMOVE)
     confidence_score = Column(Float)
+
+# --- NEW: USER MODEL FOR AUTHENTICATION ---
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String, unique=True, index=True)
+    email = Column(String, unique=True, index=True)
+    hashed_password = Column(String)
+    role = Column(String, default="admin") # Defaulting to admin for your project

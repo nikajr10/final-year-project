@@ -6,12 +6,14 @@ from app.db.models import Product, VoiceLog
 from app.core.whisper_service import WhisperService
 from app.core.llm_service import LLMService
 from sentence_transformers import SentenceTransformer
+from app.api import auth
 import shutil
 import os
 import uuid
 
 # Initialize the App
 app = FastAPI(title="SmartBiz AI Backend")
+app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
 
 # --- INITIALIZATION ---
 print("⏳ Loading AI Models...")
@@ -22,7 +24,6 @@ print("   - Llama 3 (Brain)...")
 llm_service = LLMService()
 
 print("   - SBERT (Vector Math)...")
-# We load the SAME model used in seed_data.py to ensure the math matches
 vector_model = SentenceTransformer('all-MiniLM-L6-v2')
 
 print("✅ All AI Systems Ready!")
@@ -64,23 +65,19 @@ async def process_voice(file: UploadFile = File(...), db: Session = Depends(get_
 
         print(f"🧠 Llama Extracted: {candidate_item} ({intent} {qty})")
 
-        # --- 4 & 5. SEARCH STRATEGY (The "Twist") ---
+        # --- 4 & 5. SEARCH STRATEGY ---
         
         # Strategy A: Exact Match (Fastest)
-        # We check if 'Namak' exists directly in the Nepali Name column
         product = db.query(Product).filter(Product.name_nepali == candidate_item).first()
 
         match_type = "Exact Match"
 
-        # Strategy B: Vector Search (Step 5 - The Safety Net)
+        # Strategy B: Vector Search (The Safety Net)
         if not product:
             print(f"⚠️ Exact match failed for '{candidate_item}'. Activating Vector Search...")
             
-            # 1. Convert the word "Namak" into a 384-dimensional vector
             query_vector = vector_model.encode(candidate_item).tolist()
 
-            # 2. Mathematical Search: Find the item with the closest Cosine Distance
-            # We use the <=> operator (Cosine Distance) from pgvector
             product = db.scalars(
                 select(Product)
                 .order_by(Product.embedding.cosine_distance(query_vector))
@@ -93,13 +90,21 @@ async def process_voice(file: UploadFile = File(...), db: Session = Depends(get_
             else:
                 return {"status": "error", "message": "Item not found even with AI Search."}
 
-        # --- 6. DATABASE UPDATE ---
+        # --- 6. DATABASE UPDATE & LOGIC ROUTING ---
         if intent == "ADD":
             product.current_stock += qty
             action_msg = "Added to stock"
         elif intent == "REMOVE":
             product.current_stock -= qty
             action_msg = "Removed from stock"
+        elif intent == "CHECK":
+            # For a CHECK command, we don't modify the database stock.
+            # We just set the message and optionally force the qty_changed to 0.
+            action_msg = "Checked stock level"
+            qty = 0.0  
+        else:
+            action_msg = "Unknown action"
+            qty = 0.0
         
         # Log the transaction
         log = VoiceLog(
@@ -115,7 +120,7 @@ async def process_voice(file: UploadFile = File(...), db: Session = Depends(get_
         return {
             "status": "success",
             "transcription": nepali_text,
-            "match_method": match_type,  # Shows if we used Math or Exact
+            "match_method": match_type,
             "action": action_msg,
             "item": product.name_english,
             "item_nepali": product.name_nepali,
