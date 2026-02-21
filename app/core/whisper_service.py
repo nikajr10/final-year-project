@@ -149,22 +149,56 @@ class WhisperService:
             # ACTIONS / VERBS
             # ══════════════════════════════════════════════
 
-            # Remove / ghatau — घटा / गटाउ / अटाव (hallucination) / बेच / देउ
-            "अटाव": "Remove", "घटाउ": "Remove", "घटा": "Remove",
-            "गटाउ": "Remove", "बेच": "Remove", "देउ": "Remove", "हटा": "Remove",
-            "ghataau": "Remove", "ghata": "Remove", "ghatau": "Remove",
-            "bech": "Remove", "remove": "Remove", "hatau": "Remove",
+            # ── REMOVE (ghatau / ghataau) — stock goes DOWN ──────────────────
+            # Devanagari
+            "घटाउ": "Remove", "घटाउँ": "Remove", "घटायो": "Remove",
+            "घटाइ": "Remove", "घटा": "Remove", "घटाव": "Remove",
+            "गटाउ": "Remove",   # common Whisper mishear
+            "अटाव": "Remove",   # hallucination
+            "बेच्यो": "Remove", "बेच": "Remove", "बेचिन्छ": "Remove",
+            "हटाउ": "Remove", "हटा": "Remove", "हटायो": "Remove",
+            "निकाल": "Remove", "निकाल्यो": "Remove",
+            "खर्च": "Remove", "खर्च्यो": "Remove",
+            "बिक्यो": "Remove", "बिक्री": "Remove",
+            # Romanized
+            "ghatau": "Remove", "ghataau": "Remove", "ghata": "Remove",
+            "ghatayo": "Remove", "ghatai": "Remove",
+            "bech": "Remove", "bechyo": "Remove",
+            "hatau": "Remove", "hatayo": "Remove",
+            "nikal": "Remove", "nikalyo": "Remove",
+            "kharch": "Remove", "kharchyo": "Remove",
+            "bikyo": "Remove", "bikri": "Remove",
+            "remove": "Remove", "sell": "Remove", "sold": "Remove",
+            "decrease": "Remove", "reduce": "Remove",
 
-            # Add / thap — थप / थपा / धपा / किन्यो / राख / आयो
-            "थपा": "Add", "थप": "Add", "धपा": "Add",
-            "किन्यो": "Add", "राख": "Add", "आयो": "Add", "थप्यो": "Add",
-            "thap": "Add", "thapaau": "Add", "aayo": "Add", "rakh": "Add",
-            "add": "Add",
+            # ── ADD (badhau / thap) — stock goes UP ─────────────────────────
+            # Devanagari
+            "बढाउ": "Add", "बढाउँ": "Add", "बढायो": "Add",
+            "बढाइ": "Add", "बढा": "Add", "बढ्यो": "Add",
+            "थप्यो": "Add", "थपा": "Add", "थप": "Add", "धपा": "Add",
+            "किन्यो": "Add", "किन्छु": "Add", "किन्यौं": "Add",
+            "राख्यो": "Add", "राख": "Add", "राखियो": "Add",
+            "आयो": "Add", "आउँछ": "Add",
+            "थपिन्छ": "Add", "थपियो": "Add",
+            # Romanized
+            "badhau": "Add", "badhaau": "Add", "badhayo": "Add",
+            "badha": "Add", "badhyo": "Add",
+            "thap": "Add", "thapaau": "Add", "thapyo": "Add",
+            "kinyo": "Add", "kinchhau": "Add",
+            "rakh": "Add", "rakhyo": "Add",
+            "aayo": "Add", "aaucha": "Add",
+            "add": "Add", "increase": "Add", "bought": "Add",
 
-            # Check / kati — बाँकी / कति / चेक
-            "बाँकी": "Check", "कति": "Check", "चेक": "Check",
-            "kati": "Check", "banki": "Check", "baaki": "Check",
-            "check": "Check",
+            # ── CHECK — query current stock level ────────────────────────────
+            # Devanagari
+            "बाँकी": "Check", "बाँकि": "Check",
+            "कति": "Check", "कतिवटा": "Check", "कतिओटा": "Check",
+            "चेक": "Check", "स्टक": "Check",
+            # Romanized
+            "banki": "Check", "baaki": "Check", "baki": "Check",
+            "kati": "Check", "katiwata": "Check",
+            "check": "Check", "stock": "Check",
+            "how much": "Check", "how many": "Check",
         }
 
         # ── Step 1: Normalise punctuation ──────────────────────────────────────
@@ -231,8 +265,8 @@ class WhisperService:
         initial_prompt = (
             "chamal daal nun chini tel maida besar anda chiura biskut "
             "चामल दाल नुन चिनी तेल मैदा बेसार अण्डा चिउरा बिस्कुट "
-            "thap ghata check add remove "
-            "थप घटाउ बाँकी "
+            "thap badhau ghatau check add remove "
+            "थप बढाउ घटाउ बाँकी कति "
             "ek dui tin char paanch 1 2 3 4 5 6 7 8 9 10 "
             "kilo wata packet liter kg pieces "
             "किलो वटा प्याकेट लिटर"

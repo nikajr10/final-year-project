@@ -84,16 +84,28 @@ ITEM_ALIASES = {
 
 # All surface forms → canonical action string
 ACTION_ALIASES = {
-    # Add
-    "add": "ADD", "thap": "ADD", "aayo": "ADD", "rakh": "ADD",
-    "kinyo": "ADD", "increase": "ADD",
-    # Remove
-    "remove": "REMOVE", "ghata": "REMOVE", "ghatau": "REMOVE",
-    "bech": "REMOVE", "hatau": "REMOVE", "sell": "REMOVE",
-    "sold": "REMOVE", "decrease": "REMOVE",
-    # Check
-    "check": "CHECK", "kati": "CHECK", "banki": "CHECK",
-    "baaki": "CHECK", "stock": "CHECK",
+    # ── ADD (badhau / thap) — stock goes UP ─────────────────────────────────
+    "add": "ADD", "increase": "ADD", "bought": "ADD",
+    # Romanized
+    "badhau": "ADD", "badhaau": "ADD", "badhayo": "ADD",
+    "badha": "ADD", "badhyo": "ADD",
+    "thap": "ADD", "thapaau": "ADD", "thapyo": "ADD",
+    "kinyo": "ADD", "rakh": "ADD", "aayo": "ADD",
+
+    # ── REMOVE (ghatau) — stock goes DOWN ───────────────────────────────────
+    "remove": "REMOVE", "sell": "REMOVE", "sold": "REMOVE",
+    "decrease": "REMOVE", "reduce": "REMOVE",
+    # Romanized
+    "ghatau": "REMOVE", "ghataau": "REMOVE", "ghata": "REMOVE",
+    "ghatayo": "REMOVE",
+    "bech": "REMOVE", "bechyo": "REMOVE",
+    "hatau": "REMOVE", "hatayo": "REMOVE",
+    "nikal": "REMOVE", "kharch": "REMOVE",
+    "bikyo": "REMOVE",
+
+    # ── CHECK — query current stock ──────────────────────────────────────────
+    "check": "CHECK", "stock": "CHECK",
+    "kati": "CHECK", "banki": "CHECK", "baaki": "CHECK", "baki": "CHECK",
 }
 
 # All surface forms → canonical unit string
@@ -154,10 +166,20 @@ STEP 3 — FIND THE UNIT
     Flour->kg  Turmeric->kg  Eggs->pieces  Beaten_Rice->kg  Biscuits->packet
 
 STEP 4 — FIND THE ACTION
-  Add     <- add, thap, aayo, rakh, kinyo, bought, received, increase
-  Remove  <- remove, ghata, ghatau, bech, hatau, sold, used, decrease
-  Check   <- check, kati, banki, baaki, how much, how many, stock
+  Add     <- badhau, badhaau, badhayo, thap, thapaau, aayo, rakh, kinyo,
+             बढाउ, बढायो, थप, थप्यो, किन्यो, राख, आयो,
+             bought, received, increase
+  Remove  <- ghatau, ghataau, ghatayo, ghata, bech, hatau, nikal, kharch,
+             घटाउ, घटायो, घटा, बेच, हटाउ, निकाल, खर्च,
+             sold, used, decrease, reduce
+  Check   <- check, kati, banki, baaki,
+             बाँकी, कति, चेक,
+             how much, how many, stock
   If unclear, write "UNKNOWN_ACTION"
+
+  CRITICAL RULE: badhau / बढाउ = ADD (increase stock)
+                 ghatau / घटाउ = REMOVE (decrease stock)
+                 These are OPPOSITE actions. Never mix them up.
 
 STEP 5 — WRITE THE FINAL TRANSLATION
   Format MUST be exactly: <Action> <Quantity> <Unit> <Item>
@@ -202,10 +224,17 @@ into a JSON object. Return ONLY the JSON — no explanation, no markdown, no ext
 
 VALID VALUES:
   intent : "ADD" | "REMOVE" | "CHECK"
-  item   : EXACTLY one of → "Chamal" "Daal" "Nun" "Chini" "Tel"
+  item   : EXACTLY one of -> "Chamal" "Daal" "Nun" "Chini" "Tel"
                              "Maida" "Besar" "Anda" "Chiura" "Biskut"
   qty    : integer >= 0   (must be 0 for CHECK)
   unit   : "kg" | "pieces" | "packet" | "liter"
+
+INTENT RULES:
+  "ADD"    = stock is INCREASING (badhau, thap, kinyo, bought, aayo)
+  "REMOVE" = stock is DECREASING (ghatau, bech, hatau, sold, used)
+  "CHECK"  = query stock level only (kati, banki, check)
+  badhau/बढाउ -> ADD    (these are opposites — never confuse them)
+  ghatau/घटाउ -> REMOVE
 
 ITEM MAPPING (English canonical → output value):
   Rice        -> "Chamal"

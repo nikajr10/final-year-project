@@ -116,6 +116,12 @@ async def process_voice(file: UploadFile = File(...), db: Session = Depends(get_
         db.commit()
         db.refresh(product)
 
+        # --- 7. THRESHOLD ALERT LOGIC ---
+        alert_message = None
+        if product.current_stock < 40:
+            alert_message = f"⚠️ CRITICAL: {product.name_english} stock has dropped to {product.current_stock} {product.unit}! (Threshold: 40)"
+            print(f"🚨 {alert_message}")
+
         # --- FINAL RESPONSE ---
         return {
             "status": "success",
@@ -126,7 +132,8 @@ async def process_voice(file: UploadFile = File(...), db: Session = Depends(get_
             "item_nepali": product.name_nepali,
             "qty_changed": qty,
             "new_stock": product.current_stock,
-            "unit": product.unit
+            "unit": product.unit,
+            "alert_message": alert_message
         }
 
     except Exception as e:
