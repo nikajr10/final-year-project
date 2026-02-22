@@ -1,10 +1,11 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-# CONNECT TO: superuser | finalpassword | Port 5435 | DB final_inventory
-DATABASE_URL = "postgresql://superuser:finalpassword@127.0.0.1:5435/final_inventory"
+# --- THIS IS THE LINE YOU ASKED FOR ---
+from app.core.config import settings 
 
-engine = create_engine(DATABASE_URL)
+# We now pass the secure, dynamically loaded variable into the database engine
+engine = create_engine(settings.DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 def get_db():

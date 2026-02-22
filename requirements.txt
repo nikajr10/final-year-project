@@ -1,7 +1,29 @@
+# --- Core API ---
 fastapi
 uvicorn
 python-multipart
+
+# --- Audio Processing ---
 ffmpeg-python
 webrtcvad
 pydub
 numpy
+
+# --- AI & Machine Learning ---
+openai-whisper
+requests
+sentence-transformers
+
+# --- Database & Vector Search ---
+sqlalchemy
+pgvector
+psycopg2-binary
+
+# --- Authentication & Security ---
+passlib
+bcrypt==3.2.2
+python-jose
+email-validator
+
+# --- Reporting ---
+fpdf2
