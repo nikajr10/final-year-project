@@ -1,3 +1,4 @@
+// frontend/app/voice.tsx
 import { router, Stack } from "expo-router";
 import React, { useState, useEffect } from "react";
 import {
@@ -8,7 +9,7 @@ import {
   Text,
   View,
   ActivityIndicator,
-  Alert
+  Alert,
 } from "react-native";
 import { Audio } from "expo-av";
 
@@ -25,6 +26,9 @@ export default function Voice() {
   const [aiResponse, setAiResponse] = useState("Hold the Button...");
   const [transcription, setTranscription] = useState("Ask about stock or sales");
 
+  // NEW: store AI decision
+  const [decision, setDecision] = useState(null);
+
   useEffect(() => {
     (async () => {
       const { status } = await Audio.requestPermissionsAsync();
@@ -34,9 +38,7 @@ export default function Voice() {
     })();
 
     return () => {
-      if (recording) {
-        recording.stopAndUnloadAsync();
-      }
+      if (recording) recording.stopAndUnloadAsync();
     };
   }, []);
 
@@ -71,7 +73,6 @@ export default function Voice() {
         await recording.stopAndUnloadAsync();
         setRecording(null);
       }
-
       await Audio.setAudioModeAsync({
         allowsRecordingIOS: true,
         playsInSilentModeIOS: true,
@@ -86,14 +87,11 @@ export default function Voice() {
 
     try {
       await cleanupAudio();
-
       setIsRecording(true);
       setAiResponse("Listening...");
+      setDecision(null);
 
-      const { recording: newRecording } = await Audio.Recording.createAsync(
-        recordingOptions
-      );
-
+      const { recording: newRecording } = await Audio.Recording.createAsync(recordingOptions);
       setRecording(newRecording);
     } catch (err) {
       console.error("Failed to start recording", err);
@@ -110,9 +108,7 @@ export default function Voice() {
     try {
       await recording.stopAndUnloadAsync();
       const uri = recording.getURI();
-
       setRecording(null);
-
       uploadAudio(uri);
     } catch (error) {
       console.error("Stop error:", error);
@@ -125,16 +121,17 @@ export default function Voice() {
 
     setIsProcessing(true);
     setAiResponse("Processing...");
+    setDecision(null);
 
     try {
       const formData = new FormData();
       formData.append("file", {
-        uri: uri,
+        uri,
         name: "voice_command.wav",
         type: "audio/wav",
       });
 
-      const response = await fetch(`${API_URL}/voice`, {
+      const response = await fetch(`${API_URL}/process-voice`, {
         method: "POST",
         body: formData,
         headers: {
@@ -145,8 +142,19 @@ export default function Voice() {
       const data = await response.json();
 
       if (response.ok) {
-        setTranscription(`"${data.transcription}"`);
-        setAiResponse(data.response);
+        // 🔹 Update transcription and AI response
+        setTranscription(data.transcription ? `"${data.transcription}"` : "—");
+        setAiResponse(data.response || "No response");
+
+        // 🔹 Show decision
+        if (data.intent && data.item && data.qty && data.unit) {
+          setDecision({
+            intent: data.intent,
+            item: data.item,
+            qty: data.qty,
+            unit: data.unit,
+          });
+        }
       } else {
         setAiResponse("❌ Error: " + (data.error || "Unknown error"));
       }
@@ -160,7 +168,6 @@ export default function Voice() {
 
   return (
     <>
-      {/* ✅ THIS HIDES BACK ARROW + TITLE */}
       <Stack.Screen options={{ headerShown: false }} />
 
       <KeyboardAvoidingView
@@ -195,6 +202,26 @@ export default function Voice() {
             <Text className="text-purple-200 font-medium mt-2 text-center px-4 italic">
               {transcription}
             </Text>
+
+            {decision && (
+              <View className="mt-4 bg-white p-4 rounded-xl w-full">
+                <Text className="text-gray-700 font-semibold text-center mb-2">
+                  ✅ Parsed Decision
+                </Text>
+                <Text className="text-gray-800">
+                  Action: {decision.intent}
+                </Text>
+                <Text className="text-gray-800">
+                  Item: {decision.item}
+                </Text>
+                <Text className="text-gray-800">
+                  Quantity: {decision.qty}
+                </Text>
+                <Text className="text-gray-800">
+                  Unit: {decision.unit}
+                </Text>
+              </View>
+            )}
 
             {isProcessing && (
               <ActivityIndicator
@@ -240,7 +267,7 @@ export default function Voice() {
               className="border-2 border-white mx-6 py-4 rounded-2xl"
               onPress={() => router.push("/(tabs)")}
             >
-              <Text className="text-xl font-bold text-white text-center">
+              <Text className="text-xl font-bold text-white text-center" on>
                 Finish
               </Text>
             </Pressable>

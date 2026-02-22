@@ -1,3 +1,5 @@
+"use client";
+
 import { useRouter } from "expo-router";
 import React, { useMemo, useState } from "react";
 import {
@@ -9,13 +11,13 @@ import {
   TextInput,
   View,
 } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
-// ✅ USE THE SAME IP THAT WORKED FOR LOGIN
+// ✅ Use your working local IP
 const API_URL = "http://192.168.1.95:8000";
 
 export default function SignupScreen() {
   const router = useRouter();
-
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -38,35 +40,34 @@ export default function SignupScreen() {
     }
 
     setIsSubmitting(true);
-    try {
-      console.log(`🔌 Attempting Signup to: ${API_URL}/auth/register`);
 
-      const response = await fetch(`${API_URL}/auth/register`, {
+    try {
+      const res = await fetch(`${API_URL}/api/auth/register`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: fullName,
+          name: fullName.trim(),
           email: email.toLowerCase().trim(),
           password: password,
         }),
       });
 
-      const data = await response.json();
+      const data = await res.json();
 
-      if (response.ok) {
-        // ✅ Signup Success
-        console.log("✅ Signup Successful:", data);
-        Alert.alert("Account created", "Signup successful. Please log in.");
-        router.replace("/(auth)/login");
+      if (res.ok) {
+        // Optionally save user info immediately
+        await AsyncStorage.setItem("user_name", data.name || fullName.trim());
+        await AsyncStorage.setItem("user_token", data.token || "");
+        await AsyncStorage.setItem("user_id", data.id?.toString() || "0");
+
+        Alert.alert("✅ Signup Successful", "You are now logged in!");
+        router.replace("/profile");
       } else {
-        // ❌ Signup Failed
-        Alert.alert("Signup failed", data.detail || "Something went wrong.");
+        Alert.alert("❌ Signup Failed", data.detail || "Something went wrong.");
       }
     } catch (error) {
-      console.error("❌ Network Error:", error);
-      Alert.alert("Connection Error", "Could not reach the server.");
+      console.error(error);
+      Alert.alert("❌ Network Error", "Could not reach the server.");
     } finally {
       setIsSubmitting(false);
     }
@@ -75,18 +76,19 @@ export default function SignupScreen() {
   return (
     <KeyboardAvoidingView
       style={{ flex: 1 }}
-      behavior={Platform.select({ ios: "padding", android: undefined })}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       <View className="flex-1 items-center justify-center bg-white px-4 dark:bg-zinc-950">
-        <View className="w-full max-w-md rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950">
+        <View className="w-full max-w-md rounded-2xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-950">
           <Text className="text-center text-sm font-semibold tracking-wide text-zinc-600 dark:text-zinc-400">
-            Speech Enabled
+            Inventory Management
           </Text>
-          <Text className="mt-2 text-center text-3xl font-extrabold leading-9 text-purple-700 dark:text-purple-300">
-            Inventory Management{`\n`}System
+          <Text className="mt-2 text-center text-3xl font-extrabold text-purple-700 dark:text-purple-300">
+            Signup
           </Text>
 
-          <Text className="mt-8 text-sm font-semibold text-slate-600 dark:text-slate-300">
+          {/* Full Name */}
+          <Text className="mt-6 text-sm font-semibold text-slate-600 dark:text-slate-300">
             Full Name
           </Text>
           <TextInput
@@ -99,6 +101,7 @@ export default function SignupScreen() {
             className="mt-2 rounded-xl border border-slate-600 px-3 py-3 text-base text-zinc-900 dark:border-slate-500 dark:text-zinc-100"
           />
 
+          {/* Email */}
           <Text className="mt-4 text-sm font-semibold text-slate-600 dark:text-slate-300">
             Email
           </Text>
@@ -113,6 +116,7 @@ export default function SignupScreen() {
             className="mt-2 rounded-xl border border-slate-600 px-3 py-3 text-base text-zinc-900 dark:border-slate-500 dark:text-zinc-100"
           />
 
+          {/* Password */}
           <Text className="mt-4 text-sm font-semibold text-slate-600 dark:text-slate-300">
             Password
           </Text>
@@ -125,6 +129,7 @@ export default function SignupScreen() {
             className="mt-2 rounded-xl border border-slate-600 px-3 py-3 text-base text-zinc-900 dark:border-slate-500 dark:text-zinc-100"
           />
 
+          {/* Confirm Password */}
           <Text className="mt-4 text-sm font-semibold text-slate-600 dark:text-slate-300">
             Confirm Password
           </Text>
@@ -137,11 +142,11 @@ export default function SignupScreen() {
             className="mt-2 rounded-xl border border-slate-600 px-3 py-3 text-base text-zinc-900 dark:border-slate-500 dark:text-zinc-100"
           />
 
+          {/* Signup Button */}
           <Pressable
-            accessibilityRole="button"
             onPress={handleSignup}
             disabled={isSubmitting}
-            className="mt-5 items-center rounded-xl bg-purple-700 py-3"
+            className="mt-6 items-center rounded-xl bg-purple-700 py-3"
             style={({ pressed }) => [
               pressed && { opacity: 0.9 },
               isSubmitting && { opacity: 0.6 },
@@ -152,11 +157,11 @@ export default function SignupScreen() {
             </Text>
           </Pressable>
 
+          {/* Login Redirect */}
           <Pressable
-            accessibilityRole="button"
             onPress={() => router.push("/(auth)/login")}
-            className="mt-3 items-center py-2"
-            style={({ pressed }) => [pressed && { opacity: 0.85 }]}
+            className="mt-4 items-center py-2"
+            style={({ pressed }) => pressed && { opacity: 0.85 }}
           >
             <Text className="text-base font-semibold text-sky-700 dark:text-sky-400">
               Already have an account? Log in

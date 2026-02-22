@@ -30,9 +30,9 @@ export default function LoginScreen() {
 
     setIsSubmitting(true);
     try {
-      console.log(`🔌 Attempting login to: ${API_URL}/auth/login`);
+      console.log(`🔌 Attempting login to: ${API_URL}/api/auth/login`);
 
-      const response = await fetch(`${API_URL}/auth/login`, {
+      const response = await fetch(`${API_URL}/api/auth/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -49,12 +49,14 @@ export default function LoginScreen() {
         // ✅ Login Success
         console.log("✅ Login Successful:", data);
         
-        // Save the User ID or Token for future requests
-        await AsyncStorage.setItem("user_id", data.user_id.toString());
-        await AsyncStorage.setItem("user_name", data.name);
+        // FIX: Save the secure JWT Token instead of user_id
+        await AsyncStorage.setItem("access_token", data.access_token);
         
-        Alert.alert("Welcome back!", `Logged in as ${data.name}`);
-        router.replace("/(tabs)"); // Navigate to Home
+        // FIX: Generic welcome message since backend doesn't send the name here
+        Alert.alert("Welcome back!", "You have logged in successfully.");
+        
+        // Navigate to Home
+        router.replace("/(tabs)"); 
       } else {
         // ❌ Login Failed (Wrong password, etc.)
         Alert.alert("Login Failed", data.detail || "Invalid credentials.");
