@@ -141,3 +141,35 @@ webencodings==0.5.1
 websocket-client==1.8.0
 Werkzeug==3.0.3
 widgetsnbextension==4.0.11
+
+
+# --- Core backend dependencies ---
+# fastapi==0.135.2
+# uvicorn
+# SQLAlchemy==2.0.48
+# psycopg2-binary==2.9.11
+# pgvector==0.4.2
+# pydantic==2.11.7
+# pydantic-settings==2.13.1
+# python-dotenv==1.0.1
+# python-jose==3.5.0
+# python-multipart==0.0.22
+# passlib==1.7.4
+# bcrypt==4.0.1
+# email-validator==2.3.0
+# sentence-transformers==5.3.0
+# openai-whisper==20250625
+# pydub==0.25.1
+
+# --- Development and testing tools ---
+# pytest
+# alembic
+
+# # --- Jupyter and notebook tools (if used) ---
+# jupyter
+# jupyterlab
+# notebook
+# ipywidgets
+
+# --- Other dependencies ---
+# (add any other libraries you installed for this project)
