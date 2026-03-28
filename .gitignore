@@ -8,3 +8,9 @@ __pycache__/
 venv/
 ENV/
 env/
+
+# Ignore large binary files and libraries
+*.dylib
+llvmlite/
+torch/
+site-packages/
