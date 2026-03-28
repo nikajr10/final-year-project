@@ -13,8 +13,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // 🚨 REPLACE WITH YOUR COMPUTER'S LOCAL IP ADDRESS
 // Find it by running `ipconfig` (Windows) or `ipconfig getifaddr en0` (Mac)
-const API_URL = "http://192.168.1.95:8000"; // your local backend IP
-
+const API_URL = "http://192.168.1.94:8000"; // your local backend IP
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -48,15 +47,15 @@ export default function LoginScreen() {
       if (response.ok) {
         // ✅ Login Success
         console.log("✅ Login Successful:", data);
-        
+
         // FIX: Save the secure JWT Token instead of user_id
         await AsyncStorage.setItem("access_token", data.access_token);
-        
+
         // FIX: Generic welcome message since backend doesn't send the name here
         Alert.alert("Welcome back!", "You have logged in successfully.");
-        
+
         // Navigate to Home
-        router.replace("/(tabs)"); 
+        router.replace("/(tabs)");
       } else {
         // ❌ Login Failed (Wrong password, etc.)
         Alert.alert("Login Failed", data.detail || "Invalid credentials.");
@@ -65,7 +64,7 @@ export default function LoginScreen() {
       console.error("❌ Network Error:", error);
       Alert.alert(
         "Connection Error",
-        "Could not connect to the server. Check your Wi-Fi and IP address."
+        "Could not connect to the server. Check your Wi-Fi and IP address.",
       );
     } finally {
       setIsSubmitting(false);

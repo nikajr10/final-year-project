@@ -19,7 +19,9 @@ export default function SalesScreen() {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
       {/* Title */}
-      <Text className="font-inter text-3xl font-bold uppercase text-slate-900">Sales</Text>
+      <Text className="font-inter text-3xl font-bold uppercase text-slate-900">
+        Sales
+      </Text>
 
       {/* Custom Segmented Control */}
       <View style={styles.segmentContainer} className="my-6">
@@ -46,9 +48,7 @@ export default function SalesScreen() {
 
       {/* Selected Content */}
       <View style={styles.contentContainer}>
-        <Text style={styles.selectedText}>
-          Selected: {tabs[selectedIndex]}
-        </Text>
+        <Text style={styles.selectedText}>Selected: {tabs[selectedIndex]}</Text>
       </View>
     </KeyboardAvoidingView>
   );

@@ -8,18 +8,18 @@ import {
   FlatList,
   ActivityIndicator,
   Pressable,
-  RefreshControl
+  RefreshControl,
 } from "react-native";
-import { useFocusEffect } from "expo-router"; 
+import { useFocusEffect } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const API_URL = "http://192.168.1.95:8000";
+const API_URL = "http://192.168.1.94:8000";
 
 // FIX 3: Match the exact schema your Swagger just showed us
 interface Product {
   item: string;
   item_nepali: string;
-  current_stock: number; 
+  current_stock: number;
   unit: string;
 }
 
@@ -40,17 +40,17 @@ export default function InventoryScreen() {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}` 
-        }
+          Authorization: `Bearer ${token}`,
+        },
       });
-      
+
       const data = await response.json();
-      
+
       if (response.ok && data.status === "success") {
         // FIX 2: Extract data.inventory
         const inventoryList = data.inventory;
         setProducts(inventoryList);
-        setFilteredProducts(inventoryList); 
+        setFilteredProducts(inventoryList);
       } else {
         console.error("Failed to fetch inventory:", data);
       }
@@ -65,7 +65,7 @@ export default function InventoryScreen() {
   useFocusEffect(
     React.useCallback(() => {
       fetchProducts();
-    }, [])
+    }, []),
   );
 
   const handleSearch = (text: string) => {
@@ -76,8 +76,11 @@ export default function InventoryScreen() {
         const itemData = p.item ? p.item.toUpperCase() : "";
         const itemDataNepali = p.item_nepali ? p.item_nepali : "";
         const textData = text.toUpperCase();
-        
-        return itemData.indexOf(textData) > -1 || itemDataNepali.indexOf(textData) > -1;
+
+        return (
+          itemData.indexOf(textData) > -1 ||
+          itemDataNepali.indexOf(textData) > -1
+        );
       });
       setFilteredProducts(newData);
     } else {
@@ -87,18 +90,22 @@ export default function InventoryScreen() {
 
   const renderItem = ({ item }: { item: Product }) => {
     const isLowStock = item.current_stock < 10;
-    const stockColor = isLowStock ? "#B91C1C" : "#15803D"; 
+    const stockColor = isLowStock ? "#B91C1C" : "#15803D";
 
     return (
       <View className="bg-slate-200 rounded-lg p-4 mb-4">
         <View className="flex-row justify-between items-center">
           <View>
             {/* FIX 3: Render the correct keys */}
-            <Text className="font-bold text-lg text-slate-800">{item.item}</Text>
-            <Text className="text-sm font-medium text-slate-500">{item.item_nepali}</Text>
+            <Text className="font-bold text-lg text-slate-800">
+              {item.item}
+            </Text>
+            <Text className="text-sm font-medium text-slate-500">
+              {item.item_nepali}
+            </Text>
           </View>
-          <Text 
-            style={{ color: stockColor }} 
+          <Text
+            style={{ color: stockColor }}
             className="font-extrabold text-xl"
           >
             {item.current_stock} {item.unit}
@@ -130,7 +137,7 @@ export default function InventoryScreen() {
         <Text className="font-semibold text-lg text-slate-600">
           Items List ({filteredProducts.length})
         </Text>
-        <Pressable 
+        <Pressable
           onPress={fetchProducts}
           className="rounded-full bg-purple-100 px-4 py-1"
         >
@@ -151,10 +158,18 @@ export default function InventoryScreen() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingBottom: 100 }}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchProducts(); }} />
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => {
+                setRefreshing(true);
+                fetchProducts();
+              }}
+            />
           }
           ListEmptyComponent={
-            <Text className="text-center text-slate-400 mt-10">No items found.</Text>
+            <Text className="text-center text-slate-400 mt-10">
+              No items found.
+            </Text>
           }
         />
       )}

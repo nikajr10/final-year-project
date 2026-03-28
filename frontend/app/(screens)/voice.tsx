@@ -14,7 +14,7 @@ import {
 import { Audio } from "expo-av";
 
 // ✅ YOUR BACKEND IP
-const API_URL = "http://192.168.1.95:8000";
+const API_URL = "http://192.168.1.94:8000";
 
 const Mic = require("../../assets/images/purple_mic.png");
 
@@ -24,7 +24,9 @@ export default function Voice() {
   const [isProcessing, setIsProcessing] = useState(false);
 
   const [aiResponse, setAiResponse] = useState("Hold the Button...");
-  const [transcription, setTranscription] = useState("Ask about stock or sales");
+  const [transcription, setTranscription] = useState(
+    "Ask about stock or sales",
+  );
 
   // NEW: store AI decision
   const [decision, setDecision] = useState(null);
@@ -91,7 +93,8 @@ export default function Voice() {
       setAiResponse("Listening...");
       setDecision(null);
 
-      const { recording: newRecording } = await Audio.Recording.createAsync(recordingOptions);
+      const { recording: newRecording } =
+        await Audio.Recording.createAsync(recordingOptions);
       setRecording(newRecording);
     } catch (err) {
       console.error("Failed to start recording", err);
@@ -208,27 +211,15 @@ export default function Voice() {
                 <Text className="text-gray-700 font-semibold text-center mb-2">
                   ✅ Parsed Decision
                 </Text>
-                <Text className="text-gray-800">
-                  Action: {decision.intent}
-                </Text>
-                <Text className="text-gray-800">
-                  Item: {decision.item}
-                </Text>
-                <Text className="text-gray-800">
-                  Quantity: {decision.qty}
-                </Text>
-                <Text className="text-gray-800">
-                  Unit: {decision.unit}
-                </Text>
+                <Text className="text-gray-800">Action: {decision.intent}</Text>
+                <Text className="text-gray-800">Item: {decision.item}</Text>
+                <Text className="text-gray-800">Quantity: {decision.qty}</Text>
+                <Text className="text-gray-800">Unit: {decision.unit}</Text>
               </View>
             )}
 
             {isProcessing && (
-              <ActivityIndicator
-                size="large"
-                color="white"
-                className="mt-4"
-              />
+              <ActivityIndicator size="large" color="white" className="mt-4" />
             )}
           </View>
 
@@ -253,8 +244,8 @@ export default function Voice() {
                 {isProcessing
                   ? "Please Wait..."
                   : isRecording
-                  ? "Release to Send"
-                  : "Hold to Speak"}
+                    ? "Release to Send"
+                    : "Hold to Speak"}
               </Text>
             </Pressable>
           </View>
