@@ -14,7 +14,7 @@ import {
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // ✅ Use your working local IP
-const API_URL = "http://192.168.1.95:8000";
+const API_URL = "http://192.168.1.92:8000";
 
 export default function SignupScreen() {
   const router = useRouter();

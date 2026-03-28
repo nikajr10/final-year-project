@@ -13,7 +13,7 @@ import {
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const API_URL = "http://192.168.1.95:8000";
+const API_URL = "http://192.168.1.92:8000";
 
 const Microphone = require("../../assets/images/Microphone.png");
 const Sales = require("../../assets/images/Sales.png");

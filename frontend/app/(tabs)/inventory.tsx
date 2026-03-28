@@ -13,7 +13,7 @@ import {
 import { useFocusEffect } from "expo-router"; 
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const API_URL = "http://192.168.1.95:8000";
+const API_URL = "http://192.168.1.92:8000";
 
 // FIX 3: Match the exact schema your Swagger just showed us
 interface Product {

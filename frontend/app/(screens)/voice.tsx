@@ -14,7 +14,7 @@ import {
 import { Audio } from "expo-av";
 
 // ✅ YOUR BACKEND IP
-const API_URL = "http://192.168.1.95:8000";
+const API_URL = "http://192.168.1.92:8000";
 
 const Mic = require("../../assets/images/purple_mic.png");
 
