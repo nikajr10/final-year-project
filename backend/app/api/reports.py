@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from datetime import datetime, timedelta
 from app.db.session import get_db
 from app.db.models import TransactionHistory
@@ -11,17 +12,17 @@ router = APIRouter()
 def download_sales_report(days: int = 7, db: Session = Depends(get_db)):
     # Added 30 just in case your frontend accidentally sends 30 instead of 28
     if days not in [1, 7, 28, 30]: 
-        raise HTTPException(status_code=400, detail="Invalid duration. Choose 1, 7, or 28 days.")
+        raise HTTPException(status_code=400, detail="Invalid duration. Choose 1, 7, 28, or 30 days.")
         
     # Using local now() is often safer than utcnow() if your database relies on local server time
     target_date = datetime.now() - timedelta(days=days)
     
     # FIX 1: Catch all possible terms for a deduction/sale
     # This prevents the 404 error if your DB saves "DEDUCT" or lowercase "remove"
-    valid_actions = ["REMOVE", "remove", "DEDUCT", "deduct", "SALE", "sale"]
+    valid_actions = ["REMOVE", "DEDUCT", "SALE"]
     
     logs = db.query(TransactionHistory).filter(
-        TransactionHistory.action_type.in_(valid_actions),
+        func.upper(TransactionHistory.action_type).in_(valid_actions),
         TransactionHistory.timestamp >= target_date
     ).order_by(TransactionHistory.timestamp.desc()).all()
     
