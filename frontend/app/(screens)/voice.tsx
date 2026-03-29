@@ -258,7 +258,10 @@ export default function Voice() {
               className="border-2 border-white mx-6 py-4 rounded-2xl"
               onPress={() => router.push("/(tabs)")}
             >
-              <Text className="text-xl font-bold text-white text-center" on>
+              <Text
+                className="text-xl font-bold text-white text-center"
+                onClick={() => router.push("/(tabs)")}
+              >
                 Finish
               </Text>
             </Pressable>
