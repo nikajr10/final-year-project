@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environments
+venv/
+ENV/
+env/
+
+# Ignore large binary files and libraries
+*.dylib
+llvmlite/
+torch/
+site-packages/

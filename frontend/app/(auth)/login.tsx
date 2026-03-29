@@ -10,10 +10,10 @@ import {
   View,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { API_URL } from "../../constants/Config";
 
 // 🚨 REPLACE WITH YOUR COMPUTER'S LOCAL IP ADDRESS
 // Find it by running `ipconfig` (Windows) or `ipconfig getifaddr en0` (Mac)
-const API_URL = "http://192.168.1.94:8000"; // your local backend IP
 
 export default function LoginScreen() {
   const router = useRouter();

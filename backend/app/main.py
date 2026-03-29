@@ -36,6 +36,7 @@ from fastapi import FastAPI, UploadFile, File, Depends
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from sentence_transformers import SentenceTransformer
+from app.api import chatbot
 
 from app.db.session import get_db
 from app.db.models import Product, VoiceLog, TransactionHistory
@@ -51,6 +52,7 @@ from app.api import auth, reports
 app = FastAPI(title="SmartBiz AI Backend")
 app.include_router(auth.router,    prefix="/api/auth",    tags=["Authentication"])
 app.include_router(reports.router, prefix="/api/reports", tags=["Reports"])
+app.include_router(chatbot.router, prefix="/api/chat", tags=["AI Chatbot"])
 
 
 # ══════════════════════════════════════════════════════════════════════════════

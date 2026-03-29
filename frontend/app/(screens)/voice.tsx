@@ -12,9 +12,9 @@ import {
   Alert,
 } from "react-native";
 import { Audio } from "expo-av";
+import { API_URL } from "../../constants/Config";
 
 // ✅ YOUR BACKEND IP
-const API_URL = "http://192.168.1.94:8000";
 
 const Mic = require("../../assets/images/purple_mic.png");
 

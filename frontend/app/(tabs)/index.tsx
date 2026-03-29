@@ -12,8 +12,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-
-const API_URL = "http://192.168.1.94:8000";
+import { API_URL } from "../../constants/Config";
 
 const Microphone = require("../../assets/images/Microphone.png");
 const Sales = require("../../assets/images/Sales.png");
