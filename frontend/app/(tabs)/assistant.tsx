@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import { useFocusEffect } from "expo-router";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import { API_URL, FETCH_TIMEOUT_MS } from "../../constants/Config";
+import { API_URL} from "../../constants/Config";
 
 type Message = {
   id: string;
@@ -59,7 +59,7 @@ export default function AssistantScreen() {
     setLoading(true);
 
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+    const timer = setTimeout(() => controller.abort(), 100000);
 
     try {
       const res = await fetch(`${API_URL}/api/chat/chat`, {
