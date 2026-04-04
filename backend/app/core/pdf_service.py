@@ -1,51 +1,64 @@
 from fpdf import FPDF
 from datetime import datetime
 
-class PDFReport(FPDF):
-    def header(self):
-        self.set_font("helvetica", "B", 16)
-        self.cell(0, 10, "SmartBiz Inventory System", border=False, ln=True, align="C")
-        self.set_font("helvetica", "I", 12)
-        self.cell(0, 10, "Automated Sales & Stock Removal Report", border=False, ln=True, align="C")
-        self.ln(5)
-
-    def footer(self):
-        self.set_y(-15)
-        self.set_font("helvetica", "I", 8)
-        self.cell(0, 10, f"Page {self.page_no()}", align="C")
-
-def generate_sales_pdf(logs: list, days: int) -> bytes:
-    pdf = PDFReport()
+def generate_sales_pdf(logs, days: int) -> bytes:
+    pdf = FPDF()
     pdf.add_page()
     
-    pdf.set_font("helvetica", "B", 14)
-    pdf.cell(0, 10, f"Sales Report (Last {days} Days)", ln=True)
-    pdf.set_font("helvetica", "", 10)
-    pdf.cell(0, 10, f"Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", ln=True)
-    pdf.ln(5)
+    # --- Title ---
+    pdf.set_font("Arial", 'B', 16)
+    pdf.cell(0, 10, f"SmartBiz Sales & Removal Report (Last {days} Days)", ln=True, align='C')
+    pdf.ln(10)
     
-    pdf.set_font("helvetica", "B", 12)
-    pdf.cell(60, 10, "Date", border=1)
-    pdf.cell(70, 10, "Item (Nepali)", border=1)
-    pdf.cell(40, 10, "Qty Sold", border=1, ln=True)
+    # --- Table Headers ---
+    pdf.set_font("Arial", 'B', 10) # Slightly smaller font to fit 5 columns nicely
     
-    pdf.set_font("helvetica", "", 12)
-    total_sold = 0.0
+    # Total A4 width is ~190mm. Let's divide it perfectly:
+    # 35 + 55 + 30 + 35 + 35 = 190mm
+    pdf.cell(35, 10, "Date & Time", border=1, align='C')
+    pdf.cell(55, 10, "Item", border=1, align='C')
+    pdf.cell(30, 10, "Action", border=1, align='C')
+    pdf.cell(35, 10, "Quantity", border=1, align='C')
+    pdf.cell(35, 10, "Stock", border=1, align='C')
+    pdf.ln()
+    
+    # --- Table Data ---
+    pdf.set_font("Arial", '', 10)
     
     for log in logs:
-        # Pulling directly from the strict ledger columns
-        qty = log.quantity_changed
-        item = log.product_name_nepali
-        total_sold += qty
+        # 1. Date
+        date_str = log.timestamp.strftime("%Y-%m-%d %H:%M") if log.timestamp else "N/A"
         
-        date_str = log.timestamp.strftime('%Y-%m-%d %H:%M')
+        # 2. Item Name (English only)
+        item_name = str(getattr(log, 'product_name_english', 'Unknown'))
         
-        pdf.cell(60, 10, date_str, border=1)
-        pdf.cell(70, 10, item, border=1)
-        pdf.cell(40, 10, f"{qty} {log.unit}", border=1, ln=True)
+        # 3. Action
+        action = str(getattr(log, 'action_type', 'N/A'))
         
-    pdf.ln(5)
-    pdf.set_font("helvetica", "B", 12)
-    pdf.cell(0, 10, f"Total Units Sold/Removed: {total_sold}", ln=True)
+        # 4. Quantity formatting
+        qty_val = getattr(log, 'quantity_changed', 0)
+        unit_val = getattr(log, 'unit', '')
+        
+        if isinstance(qty_val, float) and qty_val.is_integer():
+            qty_val = int(qty_val)
+        qty_str = f"{qty_val} {unit_val}".strip()
+
+        # 5. New Stock (Remaining amount) formatting
+        stock_val = getattr(log, 'stock_after_transaction', 0)
+        
+        if isinstance(stock_val, float) and stock_val.is_integer():
+            stock_val = int(stock_val)
+        stock_str = f"{stock_val} {unit_val}".strip()
+        
+        # Write row to PDF
+        pdf.cell(35, 10, date_str, border=1)
+        pdf.cell(55, 10, item_name, border=1)
+        pdf.cell(30, 10, action, border=1, align='C')
+        pdf.cell(35, 10, qty_str, border=1, align='C')
+        pdf.cell(35, 10, stock_str, border=1, align='C')
+        pdf.ln()
+
+    # Output to string and encode to bytes for FastAPI
+    pdf_string = pdf.output(dest='S')
     
-    return bytes(pdf.output())
+    return pdf_string.encode('latin-1')

@@ -10,6 +10,8 @@ PERMANENT NUMBER SOLUTION:
   Step 2: Exact dict — items, units, actions
   Step 3: Prefix-tree — catches any Devanagari item/action mishear not in dict
   Step 4: Deduplicate repeated canonical tokens
+  Step 5: Synonym disambiguation — generic "biscuit" → "Digestive Biscuit"
+  Step 6: Extract quantity (first integer token) from cleaned string
 
 DEVANAGARI PREFIX-TREE (item disambiguation by character):
   ┌─────────────────────────────────────────────────────────────────┐
@@ -44,6 +46,7 @@ import whisper
 # ══════════════════════════════════════════════════════════════════════════════
 
 _DEVA_DIGITS = "०१२३४५६७८९"
+
 
 def _convert_devanagari_numerals(text: str) -> str:
     """
@@ -82,15 +85,9 @@ CORRECTIONS = {
     "चार": "4", "चारु": "4",
     "char": "4", "chaar": "4",
 
-    # पाथ्स is a real Whisper hallucination for पाँच
     "पाँच": "5", "पाच": "5", "पाथ्स": "5",
     "paanch": "5", "panch": "5", "paach": "5", "paanche": "5",
 
-    # छ in Nepali = BOTH "6" AND "is/are" (grammatical).
-    # In inventory questions like "कति बाँकी छ" (how much is left?),
-    # छ is always the grammatical "is" → map to Check.
-    # For the number 6, users say "chha/chah" (Romanized) or type "6" as digit.
-    # Standalone Devanagari छ = grammatical marker → Check.
     "छ": "Check",
     "chha": "6", "chah": "6", "chhah": "6",
 
@@ -103,8 +100,6 @@ CORRECTIONS = {
     "नौ": "9", "नौं": "9",
     "nau": "9", "naw": "9", "noo": "9", "nou": "9",
 
-    # 10 — IMPORTANT: दश/दस/दास start with 'द' same as दाल.
-    # Must be caught HERE before prefix tree runs.
     "दश": "10", "दस": "10", "दास": "10", "दाश": "10",
     "das": "10", "dass": "10", "dasa": "10", "dash": "10",
 
@@ -243,48 +238,38 @@ CORRECTIONS = {
     # ITEMS — DEVANAGARI
     # ──────────────────────────────────────────────────────────────────────────
 
-    # Rice — चामल
     "चामल": "Rice", "चाामल": "Rice", "चाम": "Rice",
     "चामल्": "Rice", "चामाल": "Rice", "चामले": "Rice",
 
-    # Lentils — दाल / डाल
     "दाल": "Lentils", "डाल": "Lentils",
     "दाल्": "Lentils", "दालहरू": "Lentils", "दाले": "Lentils",
 
-    # Salt — नुन
     "नुन": "Salt", "नून": "Salt", "नुन्": "Salt",
     "नुने": "Salt", "नुनु": "Salt",
 
-    # Sugar — चिनी / चिनि
     "चिनी": "Sugar", "चिनि": "Sugar", "चिनिः": "Sugar",
     "चिनिहरू": "Sugar", "चिन्": "Sugar", "चिनो": "Sugar",
 
-    # Oil — तेल
     "तेल": "Oil", "तेल्": "Oil", "तेलहरू": "Oil",
     "तैल": "Oil", "तेलो": "Oil",
 
-    # Flour — मैदा + ALL म-mishears (म is unique first char)
     "मैदा": "Flour", "महिदा": "Flour", "मेदा": "Flour",
     "मइदा": "Flour", "माइदा": "Flour", "मईदा": "Flour",
     "मेइदा": "Flour", "मेहिदा": "Flour", "माइदाा": "Flour",
     "मैदो": "Flour", "मैदाा": "Flour", "मैिदा": "Flour", "मिदा": "Flour",
 
-    # Turmeric — बेसार / वेसार
     "बेसार": "Turmeric", "बेसाड": "Turmeric", "बेसार्": "Turmeric",
     "बेसारहरू": "Turmeric", "बेसाारा": "Turmeric", "बेसारो": "Turmeric",
     "वेसार": "Turmeric", "वेसाड": "Turmeric", "वेसारु": "Turmeric",
 
-    # Eggs — अण्डा / अन्डा / अंडा (common alternate with anusvara)
     "अण्डा": "Eggs", "अन्डा": "Eggs", "अड़ा": "Eggs",
     "अन्डो": "Eggs", "अन्डाहरू": "Eggs", "अण्डो": "Eggs",
     "अाण्डा": "Eggs", "अन्डे": "Eggs",
-    "अंडा": "Eggs",   # ← anusvara form Whisper commonly outputs
+    "अंडा": "Eggs",
 
-    # Beaten_Rice — चिउरा
     "चिउरा": "Beaten_Rice", "चिउरो": "Beaten_Rice",
     "चिउराहरू": "Beaten_Rice", "चिउर": "Beaten_Rice",
 
-    # Biscuits — बिस्कुट / बिस्किट
     "बिस्कुट": "Biscuits", "बिस्किट": "Biscuits",
     "बिस्कुट्": "Biscuits", "बिस्कुटहरू": "Biscuits",
     "बिस्किटहरू": "Biscuits", "बिस्कोट": "Biscuits",
@@ -329,19 +314,17 @@ CORRECTIONS = {
     # ACTIONS — DEVANAGARI
     # ──────────────────────────────────────────────────────────────────────────
 
-    # REMOVE — stock DOWN
     "घटाउ": "Remove", "घटाउँ": "Remove", "घटायो": "Remove",
     "घटाइ": "Remove", "घटा": "Remove", "घटाव": "Remove",
     "घटाउछ": "Remove", "घटाउनु": "Remove",
-    "गटाउ": "Remove",        # Whisper mishear of घटाउ
-    "अटाव": "Remove",        # Whisper hallucination
+    "गटाउ": "Remove",
+    "अटाव": "Remove",
     "बेच्यो": "Remove", "बेच": "Remove", "बेचिन्छ": "Remove",
     "हटाउ": "Remove", "हटा": "Remove", "हटायो": "Remove",
     "निकाल": "Remove", "निकाल्यो": "Remove",
     "खर्च": "Remove", "खर्च्यो": "Remove",
     "बिक्यो": "Remove", "बिक्री": "Remove",
 
-    # ADD — stock UP
     "बढाउ": "Add", "बढाउँ": "Add", "बढायो": "Add",
     "बढाइ": "Add", "बढा": "Add", "बढ्यो": "Add",
     "बढाउछ": "Add", "बढाउनु": "Add",
@@ -352,14 +335,13 @@ CORRECTIONS = {
     "राख्यो": "Add", "राख": "Add", "राखियो": "Add",
     "आयो": "Add", "आउँछ": "Add",
 
-    # CHECK — query stock
     "बाँकी": "Check", "बाँकि": "Check", "बाकी": "Check",
-    "बागी": "Check",          # real log mishear of बाँकी
+    "बागी": "Check",
     "बाँकिछ": "Check", "बाँकिछन्": "Check",
     "कति": "Check", "कतिवटा": "Check", "कतिओटा": "Check",
-    "कोटी": "Check",          # real log mishear of कति
+    "कोटी": "Check",
     "कोती": "Check",
-    "छाँ": "Check",           # trailing "छ" in "कति बाँकी छ"
+    "छाँ": "Check",
     "छन्": "Check",
     "चेक": "Check", "स्टक": "Check",
 
@@ -394,10 +376,35 @@ CORRECTIONS = {
 }
 
 # Quick lookup sets
-_ITEMS   = {"Rice","Lentils","Salt","Sugar","Oil","Flour",
-             "Turmeric","Eggs","Beaten_Rice","Biscuits"}
-_ACTIONS = {"Add","Remove","Check"}
-_UNITS   = {"kg","pieces","packet","liter"}
+_ITEMS   = {"Rice", "Lentils", "Salt", "Sugar", "Oil", "Flour",
+             "Turmeric", "Eggs", "Beaten_Rice", "Biscuits",
+             "Digestive Biscuit", "Tiger Biscuit"}
+_ACTIONS = {"Add", "Remove", "Check"}
+_UNITS   = {"kg", "pieces", "packet", "liter"}
+
+# ══════════════════════════════════════════════════════════════════════════════
+# SYNONYM DISAMBIGUATION TABLE
+# Maps generic spoken tokens → specific product names.
+# Only fires when no variant keyword (tiger / digestive) is already present.
+# Add new rows here as your product catalogue grows.
+# ══════════════════════════════════════════════════════════════════════════════
+
+_SYNONYM_RULES: list[dict] = [
+    {
+        # Generic "biscuit/biskut/biscuits" with no variant → Digestive Biscuit
+        "trigger_tokens":  {"biscuits", "biscuit", "biskut", "biskutt", "biscut"},
+        "variant_tokens":  {"tiger", "digestive"},
+        "replace_with":    "Digestive Biscuit",
+        "log_label":       "biscuit → Digestive Biscuit",
+    },
+    # ── Add more rules here as needed, e.g.:
+    # {
+    #     "trigger_tokens": {"oil", "tel"},
+    #     "variant_tokens": {"mustard", "sunflower", "soybean"},
+    #     "replace_with":   "Sunflower Oil",
+    #     "log_label":      "oil → Sunflower Oil",
+    # },
+]
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -415,29 +422,26 @@ def _devanagari_prefix_match(word: str) -> str | None:
     c2 = w[1] if len(w) > 1 else ""
     c3 = w[2] if len(w) > 2 else ""
 
-    # Unique first characters
-    if c1 == "अ":           return "Eggs"
-    if c1 == "ड":           return "Lentils"   # only ड here — not द (numbers caught in dict)
-    if c1 == "द":           return "Lentils"   # दाल; दश/दस/दास already replaced in dict
-    if c1 == "त":           return "Oil"
-    if c1 == "न":           return "Salt"
-    if c1 == "म":           return "Flour"     # ALL मX → Flour (unique)
-    if c1 == "व":           return "Turmeric"  # वेसार alternate
+    if c1 == "अ":  return "Eggs"
+    if c1 == "ड":  return "Lentils"
+    if c1 == "द":  return "Lentils"
+    if c1 == "त":  return "Oil"
+    if c1 == "न":  return "Salt"
+    if c1 == "म":  return "Flour"
+    if c1 == "व":  return "Turmeric"
 
-    # च — needs 2nd char
     if c1 == "च":
-        if c2 == "ा":       return "Rice"          # चा → चामल
+        if c2 == "ा":  return "Rice"
         if c2 == "ि":
-            if c3 == "न":   return "Sugar"          # चिन → चिनी
-            return "Beaten_Rice"                    # चिउ/चिो → चिउरा
-        return "Rice"                               # fallback चX
+            if c3 == "न":  return "Sugar"
+            return "Beaten_Rice"
+        return "Rice"
 
-    # ब — needs 2nd char
     if c1 == "ब":
-        if c2 == "े":       return "Turmeric"       # बे → बेसार
-        if c2 == "ि":       return "Biscuits"       # बि → बिस्कुट
-        if c2 == "ढ":       return "Add"            # बढ → बढाउ verb
-        if c2 == "ा":       return "Check"          # बाँकी (should be in dict but safety)
+        if c2 == "े":  return "Turmeric"
+        if c2 == "ि":  return "Biscuits"
+        if c2 == "ढ":  return "Add"
+        if c2 == "ा":  return "Check"
 
     return None
 
@@ -456,7 +460,7 @@ class WhisperService:
         self.model = whisper.load_model("medium")
         print("✅ Whisper Loaded Successfully")
 
-    def _clean(self, text: str) -> str:
+    def _clean(self, text: str) -> tuple[str, int]:
         """
         Full cleaning pipeline:
           Step 0: Devanagari numeral chars → Arabic  (१० → 10, infinite numbers)
@@ -465,10 +469,16 @@ class WhisperService:
           Step 3: Layer 2 prefix-tree for remaining Devanagari
           Step 4: Rebuild with canonical casing
           Step 5: Deduplicate repeated action tokens
+          Step 6: Synonym disambiguation (generic biscuit → Digestive Biscuit)
+          Step 7: Extract quantity (first integer token)
+
+        Returns
+        -------
+        (cleaned_text: str, quantity: int)
+            quantity = 0 when no number was spoken.
         """
 
         # ── Step 0: Devanagari digits → Arabic digits ─────────────────────────
-        # Must run BEFORE any other step so १० → 10 before dict sees it
         text = _convert_devanagari_numerals(text)
 
         # ── Step 1: Normalise punctuation ─────────────────────────────────────
@@ -476,7 +486,6 @@ class WhisperService:
             text = text.replace(ch, " ")
 
         # ── Step 2: Layer 1 exact dict ────────────────────────────────────────
-        # Longest key first prevents partial matches (e.g. "paanch" before "pan")
         lowered = text.lower()
 
         for key in sorted(CORRECTIONS.keys(), key=len, reverse=True):
@@ -496,11 +505,9 @@ class WhisperService:
                     resolved.append(match.lower())
                 else:
                     print(f"   ❓ Dropping unrecognised Devanagari: '{t}'")
-                    # Intentionally not appended — it's noise
             else:
                 resolved.append(t.lower())
 
-        # Merge prefix-tree output back into lowered
         lowered = " ".join(resolved)
 
         # ── Step 4: Rebuild with proper capitalisation ─────────────────────────
@@ -520,12 +527,9 @@ class WhisperService:
             else:
                 final.append(w)
 
-        # ── Step 5: Deduplicate — keep first occurrence of every token ───────────
-        # Whisper often outputs both Nepali + Romanized for the same word,
-        # producing e.g. "10 kg Sugar Add 10 kg Sugar Add".
-        # For short inventory commands, every meaningful token should appear once.
-        seen     = set()
-        deduped  = []
+        # ── Step 5: Deduplicate consecutive identical action tokens ───────────
+        deduped = []
+        prev    = None
         for w in final:
             if w not in seen:
                 seen.add(w)
@@ -533,14 +537,56 @@ class WhisperService:
 
         result = " ".join(w for w in deduped if w)
         result = " ".join(result.split())
-        return result
 
-    def transcribe(self, audio_path: str) -> str:
+        # ── Step 6: Synonym disambiguation ────────────────────────────────────
+        # Runs AFTER dict/prefix-tree so all tokens are already canonical English.
+        # Replaces generic product words with specific variants when no
+        # variant keyword (e.g. "tiger", "digestive") is present in the string.
+        result_lower = result.lower()
+        result_words = set(result_lower.split())
+
+        for rule in _SYNONYM_RULES:
+            triggers = rule["trigger_tokens"]
+            variants = rule["variant_tokens"]
+            replace  = rule["replace_with"]
+            label    = rule["log_label"]
+
+            if result_words & triggers and not result_words & variants:
+                # Replace every trigger token with the specific product name
+                for trigger in triggers:
+                    # Use word-boundary regex so "biskut" doesn't partially
+                    # match inside a longer token
+                    result = re.sub(
+                        rf"(?i)\b{re.escape(trigger)}\b",
+                        replace,
+                        result,
+                    )
+                result = " ".join(result.split())   # collapse whitespace
+                print(f"   🍪 Synonym: {label}")
+                # Rebuild result_words after replacement so subsequent rules
+                # in the same loop see the updated string
+                result_words = set(result.lower().split())
+
+        # ── Step 7: Extract quantity ───────────────────────────────────────────
+        # Grab the FIRST standalone integer in the cleaned string.
+        # e.g. "10 packet Digestive Biscuit Remove" → 10
+        # Returns 0 if no number was spoken (e.g. pure CHECK commands).
+        qty_match      = re.search(r"\b(\d+)\b", result)
+        extracted_qty  = int(qty_match.group(1)) if qty_match else 0
+
+        return result, extracted_qty
+
+    def transcribe(self, audio_path: str) -> tuple[str, int]:
         """
-        Transcribe Nepali audio → cleaned English-token string.
+        Transcribe Nepali audio → (cleaned English-token string, quantity).
+
+        Returns
+        -------
+        (cleaned_text: str, quantity: int)
         """
         initial_prompt = (
             "chamal daal nun chini tel maida besar anda chiura biskut "
+            "digestive biscuit tiger biscuit "
             "चामल दाल नुन चिनी तेल मैदा बेसार अण्डा चिउरा बिस्कुट "
             "thap badhau ghatau check add remove "
             "थप बढाउ घटाउ बाँकी कति "
@@ -564,10 +610,11 @@ class WhisperService:
 
         raw_text = result["text"].strip()
         if len(raw_text) < 2:
-            return ""
+            return "", 0
 
-        cleaned = self._clean(raw_text)
+        cleaned, qty = self._clean(raw_text)
+
         print(f"🎙️  RAW     : {raw_text!r}")
-        print(f"✅  CLEANED : {cleaned!r}")
+        print(f"✅  CLEANED : {cleaned!r}  |  QTY: {qty}")
 
-        return cleaned
+        return cleaned, qty

@@ -12,8 +12,9 @@ import {
 } from "react-native";
 import { useFocusEffect } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { API_URL, FETCH_TIMEOUT_MS } from "../../constants/Config";
+import { API_URL } from "../../constants/Config";
 
+// FIX 3: Match the exact schema your Swagger just showed us
 interface Product {
   item: string;
   item_nepali: string;
@@ -48,19 +49,19 @@ export default function InventoryScreen() {
 
       const response = await fetch(`${API_URL}/stock`, {
         method: "GET",
-        headers,
-        signal: controller.signal,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
       });
 
-      clearTimeout(timer);
       const data = await response.json();
 
       if (response.ok && data.status === "success") {
-        const list: Product[] = data.inventory;
-        setProducts(list);
-        setFilteredProducts(
-          search ? list.filter((p) => matchesSearch(p, search)) : list
-        );
+        // FIX 2: Extract data.inventory
+        const inventoryList = data.inventory;
+        setProducts(inventoryList);
+        setFilteredProducts(inventoryList);
       } else {
         setError("Failed to load inventory.");
       }
@@ -81,7 +82,7 @@ export default function InventoryScreen() {
   useFocusEffect(
     React.useCallback(() => {
       fetchProducts();
-    }, [])
+    }, []),
   );
 
   function matchesSearch(p: Product, text: string) {
@@ -94,22 +95,42 @@ export default function InventoryScreen() {
 
   const handleSearch = (text: string) => {
     setSearch(text);
-    setFilteredProducts(
-      text ? products.filter((p) => matchesSearch(p, text)) : products
-    );
+    if (text) {
+      const newData = products.filter((p) => {
+        // FIX 3: Search using the correct keys
+        const itemData = p.item ? p.item.toUpperCase() : "";
+        const itemDataNepali = p.item_nepali ? p.item_nepali : "";
+        const textData = text.toUpperCase();
+
+        return (
+          itemData.indexOf(textData) > -1 ||
+          itemDataNepali.indexOf(textData) > -1
+        );
+      });
+      setFilteredProducts(newData);
+    } else {
+      setFilteredProducts(products);
+    }
   };
 
   const renderItem = ({ item }: { item: Product }) => {
     const isLowStock = item.current_stock < 10;
+    const stockColor = isLowStock ? "#B91C1C" : "#15803D";
+
     return (
       <View className="bg-slate-200 rounded-lg p-4 mb-4">
         <View className="flex-row justify-between items-center">
           <View>
-            <Text className="font-bold text-lg text-slate-800">{item.item}</Text>
-            <Text className="text-sm font-medium text-slate-500">{item.item_nepali}</Text>
+            {/* FIX 3: Render the correct keys */}
+            <Text className="font-bold text-lg text-slate-800">
+              {item.item}
+            </Text>
+            <Text className="text-sm font-medium text-slate-500">
+              {item.item_nepali}
+            </Text>
           </View>
           <Text
-            style={{ color: isLowStock ? "#B91C1C" : "#15803D" }}
+            style={{ color: stockColor }}
             className="font-extrabold text-xl"
           >
             {item.current_stock} {item.unit}
@@ -142,7 +163,7 @@ export default function InventoryScreen() {
           Items ({filteredProducts.length})
         </Text>
         <Pressable
-          onPress={() => fetchProducts(true)}
+          onPress={fetchProducts}
           className="rounded-full bg-purple-100 px-4 py-1"
         >
           <Text className="text-purple-700 font-bold text-xs">Refresh</Text>
@@ -174,11 +195,16 @@ export default function InventoryScreen() {
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
-              onRefresh={() => fetchProducts(true)}
+              onRefresh={() => {
+                setRefreshing(true);
+                fetchProducts();
+              }}
             />
           }
           ListEmptyComponent={
-            <Text className="text-center text-slate-400 mt-10">No items found.</Text>
+            <Text className="text-center text-slate-400 mt-10">
+              No items found.
+            </Text>
           }
         />
       )}

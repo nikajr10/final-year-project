@@ -11,7 +11,9 @@ import {
   Alert,
 } from "react-native";
 import { Audio } from "expo-av";
-import { API_URL, VOICE_TIMEOUT_MS } from "../../constants/Config";
+import { API_URL } from "../../constants/Config";
+
+// ✅ YOUR BACKEND IP
 
 const Mic = require("../../assets/images/purple_mic.png");
 
@@ -29,9 +31,11 @@ export default function Voice() {
   const [recording, setRecording] = useState<Audio.Recording | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [statusText, setStatusText] = useState("Hold the Button...");
-  const [transcription, setTranscription] = useState("Ask about stock or sales");
-  const [decision, setDecision] = useState<Decision | null>(null);
+
+  const [aiResponse, setAiResponse] = useState("Hold the Button...");
+  const [transcription, setTranscription] = useState(
+    "Ask about stock or sales",
+  );
 
   // Prevent duplicate uploads when user releases/re-presses fast
   const uploadInFlight = useRef(false);
@@ -99,7 +103,8 @@ export default function Voice() {
       setStatusText("Listening...");
       setDecision(null);
 
-      const { recording: newRecording } = await Audio.Recording.createAsync(recordingOptions);
+      const { recording: newRecording } =
+        await Audio.Recording.createAsync(recordingOptions);
       setRecording(newRecording);
     } catch (err) {
       console.error("Failed to start recording", err);
@@ -239,32 +244,19 @@ export default function Voice() {
             </Text>
 
             {decision && (
-              <View
-                style={{
-                  marginTop: 16,
-                  backgroundColor: "white",
-                  padding: 16,
-                  borderRadius: 12,
-                  width: "100%",
-                }}
-              >
-                <Text style={{ color: "#374151", fontWeight: "600", textAlign: "center", marginBottom: 8 }}>
-                  Result
+              <View className="mt-4 bg-white p-4 rounded-xl w-full">
+                <Text className="text-gray-700 font-semibold text-center mb-2">
+                  ✅ Parsed Decision
                 </Text>
-                <Text style={{ color: "#1F2937" }}>Action:    {decision.action}</Text>
-                <Text style={{ color: "#1F2937" }}>Item:      {decision.item} ({decision.item_nepali})</Text>
-                <Text style={{ color: "#1F2937" }}>Changed:   {decision.qty_changed} {decision.unit}</Text>
-                <Text style={{ color: "#1F2937" }}>New Stock: {decision.new_stock} {decision.unit}</Text>
-                {decision.alert_message && (
-                  <Text style={{ color: "#B91C1C", marginTop: 8, fontWeight: "600" }}>
-                    {decision.alert_message}
-                  </Text>
-                )}
+                <Text className="text-gray-800">Action: {decision.intent}</Text>
+                <Text className="text-gray-800">Item: {decision.item}</Text>
+                <Text className="text-gray-800">Quantity: {decision.qty}</Text>
+                <Text className="text-gray-800">Unit: {decision.unit}</Text>
               </View>
             )}
 
             {isProcessing && (
-              <ActivityIndicator size="large" color="white" style={{ marginTop: 16 }} />
+              <ActivityIndicator size="large" color="white" className="mt-4" />
             )}
           </View>
 
@@ -295,7 +287,11 @@ export default function Voice() {
                   color: isRecording ? "white" : "#7E22CE",
                 }}
               >
-                {isProcessing ? "Please Wait..." : isRecording ? "Release to Send" : "Hold to Speak"}
+                {isProcessing
+                  ? "Please Wait..."
+                  : isRecording
+                    ? "Release to Send"
+                    : "Hold to Speak"}
               </Text>
             </Pressable>
           </View>
@@ -314,7 +310,10 @@ export default function Voice() {
               })}
               onPress={() => router.push("/(tabs)")}
             >
-              <Text style={{ fontSize: 18, fontWeight: "bold", color: "white" }}>
+              <Text
+                className="text-xl font-bold text-white text-center"
+                onClick={() => router.push("/(tabs)")}
+              >
                 Finish
               </Text>
             </Pressable>

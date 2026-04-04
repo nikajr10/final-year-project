@@ -31,12 +31,14 @@ import uuid
 import shutil
 import numpy as np
 from difflib import SequenceMatcher
+from app.api import routes as voice_routes
 
 from fastapi import FastAPI, UploadFile, File, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from sentence_transformers import SentenceTransformer
+from app.api import chatbot
 
 from app.db.session import get_db
 from app.db.models import Product, VoiceLog, TransactionHistory
@@ -49,18 +51,24 @@ from app.api import auth, reports
 # APP SETUP
 # ══════════════════════════════════════════════════════════════════════════════
 
+
+from fastapi.middleware.cors import CORSMiddleware
+
 app = FastAPI(title="SmartBiz AI Backend")
 
+# Allow all origins for development; restrict in production
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],   # tighten to specific origins in production
+    allow_origins=["*"],  # Change to your frontend URL for production
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 app.include_router(auth.router,    prefix="/api/auth",    tags=["Authentication"])
 app.include_router(reports.router, prefix="/api/reports", tags=["Reports"])
-
+app.include_router(chatbot.router, prefix="/api/chat", tags=["AI Chatbot"])
+app.include_router(voice_routes.router, prefix="/api/inventory", tags=["Voice Inventory"])
 
 # ══════════════════════════════════════════════════════════════════════════════
 # AI MODEL INITIALIZATION
@@ -261,7 +269,18 @@ async def process_voice(
         #   • Devanagari prefix-tree:         महिदा → Flour (म is unique)
         #   • Action deduplication:           "Check Check Check" → "Check"
         print(f"\n🎧 Processing: {file.filename}")
-        cleaned_text = whisper_service.transcribe(temp_path)
+
+        # ── FIX: transcribe() may return (text, qty) tuple ───────────────────
+        # Unpack safely; qty from Whisper is discarded because LLM re-extracts
+        # it from the cleaned text with better accuracy.
+        transcribe_result = whisper_service.transcribe(temp_path)
+
+        if isinstance(transcribe_result, tuple):
+            cleaned_text, _ = transcribe_result  # _ = whisper qty (ignored)
+        else:
+            cleaned_text = transcribe_result
+        # ─────────────────────────────────────────────────────────────────────
+
         print(f"🗣️  Cleaned: '{cleaned_text}'")
 
         if not cleaned_text:
