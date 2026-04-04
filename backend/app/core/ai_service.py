@@ -141,6 +141,12 @@ async def get_ai_advice(
                 "• Checking if Ollama is under heavy load"
             )
         except httpx.HTTPStatusError as e:
+            if e.response.status_code == 404:
+                return (
+                    f"⚠️ **Model Not Found:** The model `{MODEL_NAME}` is not installed.\n\n"
+                    f"Please open a terminal and run:\n"
+                    f"`ollama pull {MODEL_NAME}`"
+                )
             return f"⚠️ **AI Error:** Server returned status {e.response.status_code}."
         except Exception as e:
             return f"⚠️ **AI Error:** {str(e)}"
