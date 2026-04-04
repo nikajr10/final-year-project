@@ -27,11 +27,15 @@ type Decision = {
   alert_message: string | null;
 };
 
+const VOICE_TIMEOUT_MS = 15000;
+
 export default function Voice() {
   const [recording, setRecording] = useState<Audio.Recording | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
 
+  const [statusText, setStatusText] = useState("Hold the Button...");
+  const [decision, setDecision] = useState<Decision | null>(null);
   const [aiResponse, setAiResponse] = useState("Hold the Button...");
   const [transcription, setTranscription] = useState(
     "Ask about stock or sales",
@@ -248,9 +252,9 @@ export default function Voice() {
                 <Text className="text-gray-700 font-semibold text-center mb-2">
                   ✅ Parsed Decision
                 </Text>
-                <Text className="text-gray-800">Action: {decision.intent}</Text>
+                <Text className="text-gray-800">Action: {decision.action}</Text>
                 <Text className="text-gray-800">Item: {decision.item}</Text>
-                <Text className="text-gray-800">Quantity: {decision.qty}</Text>
+                <Text className="text-gray-800">Quantity: {decision.qty_changed}</Text>
                 <Text className="text-gray-800">Unit: {decision.unit}</Text>
               </View>
             )}
@@ -312,7 +316,6 @@ export default function Voice() {
             >
               <Text
                 className="text-xl font-bold text-white text-center"
-                onClick={() => router.push("/(tabs)")}
               >
                 Finish
               </Text>

@@ -163,7 +163,7 @@ export default function InventoryScreen() {
           Items ({filteredProducts.length})
         </Text>
         <Pressable
-          onPress={fetchProducts}
+          onPress={() => fetchProducts(false)}
           className="rounded-full bg-purple-100 px-4 py-1"
         >
           <Text className="text-purple-700 font-bold text-xs">Refresh</Text>
