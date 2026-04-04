@@ -241,3 +241,9 @@ def _error(message: str, **extra) -> dict:
         {"status": "error", "message": "Stock too low.", "transcription": "..."}
     """
     return {"status": "error", "message": message, **extra}
+
+
+
+
+
+
