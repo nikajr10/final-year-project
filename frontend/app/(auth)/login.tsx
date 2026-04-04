@@ -10,7 +10,7 @@ import {
   View,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { API_URL } from "../../constants/Config";
+import { API_URL, FETCH_TIMEOUT_MS } from "../../constants/Config";
 
 // 🚨 REPLACE WITH YOUR COMPUTER'S LOCAL IP ADDRESS
 // Find it by running `ipconfig` (Windows) or `ipconfig getifaddr en0` (Mac)
