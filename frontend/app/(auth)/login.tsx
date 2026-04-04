@@ -28,19 +28,19 @@ export default function LoginScreen() {
     }
 
     setIsSubmitting(true);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
     try {
-      console.log(`🔌 Attempting login to: ${API_URL}/api/auth/login`);
-
       const response = await fetch(`${API_URL}/api/auth/login`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          email: email.toLowerCase().trim(), // Ensure email format is clean
-          password: password,
+          email: email.toLowerCase().trim(),
+          password,
         }),
+        signal: controller.signal,
       });
+      clearTimeout(timer);
 
       const data = await response.json();
 

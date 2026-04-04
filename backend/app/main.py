@@ -34,6 +34,7 @@ from difflib import SequenceMatcher
 from app.api import routes as voice_routes
 
 from fastapi import FastAPI, UploadFile, File, Depends
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from sentence_transformers import SentenceTransformer

@@ -1,6 +1,5 @@
-// frontend/app/voice.tsx
 import { router, Stack } from "expo-router";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Image,
   KeyboardAvoidingView,
@@ -18,8 +17,18 @@ import { API_URL } from "../../constants/Config";
 
 const Mic = require("../../assets/images/purple_mic.png");
 
+type Decision = {
+  action: string;
+  item: string;
+  item_nepali: string;
+  qty_changed: number;
+  new_stock: number;
+  unit: string;
+  alert_message: string | null;
+};
+
 export default function Voice() {
-  const [recording, setRecording] = useState(null);
+  const [recording, setRecording] = useState<Audio.Recording | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -28,8 +37,8 @@ export default function Voice() {
     "Ask about stock or sales",
   );
 
-  // NEW: store AI decision
-  const [decision, setDecision] = useState(null);
+  // Prevent duplicate uploads when user releases/re-presses fast
+  const uploadInFlight = useRef(false);
 
   useEffect(() => {
     (async () => {
@@ -40,11 +49,12 @@ export default function Voice() {
     })();
 
     return () => {
-      if (recording) recording.stopAndUnloadAsync();
+      // Clean up on unmount
+      if (recording) recording.stopAndUnloadAsync().catch(() => {});
     };
   }, []);
 
-  const recordingOptions = {
+  const recordingOptions: Audio.RecordingOptions = {
     android: {
       extension: ".wav",
       outputFormat: Audio.AndroidOutputFormat.MPEG_4,
@@ -79,18 +89,18 @@ export default function Voice() {
         allowsRecordingIOS: true,
         playsInSilentModeIOS: true,
       });
-    } catch (error) {
-      console.log("Cleanup warning:", error);
+    } catch {
+      // ignore cleanup errors
     }
   }
 
   async function startRecording() {
-    if (isProcessing) return;
+    if (isProcessing || uploadInFlight.current) return;
 
     try {
       await cleanupAudio();
       setIsRecording(true);
-      setAiResponse("Listening...");
+      setStatusText("Listening...");
       setDecision(null);
 
       const { recording: newRecording } =
@@ -99,12 +109,12 @@ export default function Voice() {
     } catch (err) {
       console.error("Failed to start recording", err);
       setIsRecording(false);
-      setAiResponse("❌ Mic Error. Try again.");
+      setStatusText("Mic error. Try again.");
     }
   }
 
   async function stopRecording() {
-    if (!recording) return;
+    if (!recording || !isRecording) return;
 
     setIsRecording(false);
 
@@ -112,19 +122,23 @@ export default function Voice() {
       await recording.stopAndUnloadAsync();
       const uri = recording.getURI();
       setRecording(null);
-      uploadAudio(uri);
+      if (uri) uploadAudio(uri);
     } catch (error) {
       console.error("Stop error:", error);
       setRecording(null);
+      setStatusText("Hold the Button...");
     }
   }
 
-  async function uploadAudio(uri) {
-    if (!uri) return;
-
+  async function uploadAudio(uri: string) {
+    if (uploadInFlight.current) return;
+    uploadInFlight.current = true;
     setIsProcessing(true);
-    setAiResponse("Processing...");
+    setStatusText("Processing...");
     setDecision(null);
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), VOICE_TIMEOUT_MS);
 
     try {
       const formData = new FormData();
@@ -132,40 +146,48 @@ export default function Voice() {
         uri,
         name: "voice_command.wav",
         type: "audio/wav",
-      });
+      } as any);
 
       const response = await fetch(`${API_URL}/process-voice`, {
         method: "POST",
         body: formData,
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
+        signal: controller.signal,
       });
 
+      clearTimeout(timer);
       const data = await response.json();
 
-      if (response.ok) {
-        // 🔹 Update transcription and AI response
+      if (response.ok && data.status === "success") {
+        // Build a human-readable status line from the actual backend fields
+        const msg =
+          `${data.action}: ${data.item} (${data.item_nepali})\n` +
+          `Stock now: ${data.new_stock} ${data.unit}`;
+        setStatusText(msg);
         setTranscription(data.transcription ? `"${data.transcription}"` : "—");
-        setAiResponse(data.response || "No response");
-
-        // 🔹 Show decision
-        if (data.intent && data.item && data.qty && data.unit) {
-          setDecision({
-            intent: data.intent,
-            item: data.item,
-            qty: data.qty,
-            unit: data.unit,
-          });
-        }
+        setDecision({
+          action:       data.action,
+          item:         data.item,
+          item_nepali:  data.item_nepali,
+          qty_changed:  data.qty_changed,
+          new_stock:    data.new_stock,
+          unit:         data.unit,
+          alert_message: data.alert_message ?? null,
+        });
       } else {
-        setAiResponse("❌ Error: " + (data.error || "Unknown error"));
+        setStatusText(data.message || data.error || "Could not process command.");
+        setTranscription(data.transcription ? `"${data.transcription}"` : "—");
       }
-    } catch (error) {
+    } catch (error: any) {
+      clearTimeout(timer);
+      if (error?.name === "AbortError") {
+        setStatusText("Request timed out. Please try again.");
+      } else {
+        setStatusText("Cannot connect to server.");
+      }
       console.error("Upload failed:", error);
-      setAiResponse("❌ Could not connect to server.");
     } finally {
       setIsProcessing(false);
+      uploadInFlight.current = false;
     }
   }
 
@@ -174,35 +196,50 @@ export default function Voice() {
       <Stack.Screen options={{ headerShown: false }} />
 
       <KeyboardAvoidingView
-        className="flex-1 justify-center"
+        style={{ flex: 1 }}
         behavior={Platform.select({ ios: "padding", android: undefined })}
       >
         <KeyboardAvoidingView
-          className="flex-1 bg-[#7E22CE] p-6"
+          style={{ flex: 1, backgroundColor: "#7E22CE", padding: 24 }}
           behavior={Platform.OS === "ios" ? "padding" : "height"}
         >
-          <View className="flex-1 items-center justify-center">
+          <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
             <View
-              className={`p-10 rounded-full ${
-                isRecording ? "bg-red-100" : "bg-purple-50"
-              }`}
+              style={{
+                padding: 40,
+                borderRadius: 9999,
+                backgroundColor: isRecording ? "#FEE2E2" : "#F5F3FF",
+              }}
             >
               <Image
                 source={Mic}
-                style={{
-                  width: 150,
-                  height: 150,
-                  opacity: isRecording ? 0.5 : 1,
-                }}
+                style={{ width: 150, height: 150, opacity: isRecording ? 0.5 : 1 }}
                 resizeMode="contain"
               />
             </View>
 
-            <Text className="text-3xl font-bold mt-10 text-white text-center">
-              {isProcessing ? "Thinking..." : aiResponse}
+            <Text
+              style={{
+                fontSize: 22,
+                fontWeight: "bold",
+                marginTop: 40,
+                color: "white",
+                textAlign: "center",
+              }}
+            >
+              {isProcessing ? "Thinking..." : statusText}
             </Text>
 
-            <Text className="text-purple-200 font-medium mt-2 text-center px-4 italic">
+            <Text
+              style={{
+                color: "#E9D5FF",
+                fontWeight: "500",
+                marginTop: 8,
+                textAlign: "center",
+                paddingHorizontal: 16,
+                fontStyle: "italic",
+              }}
+            >
               {transcription}
             </Text>
 
@@ -223,7 +260,8 @@ export default function Voice() {
             )}
           </View>
 
-          <View className="mb-6">
+          {/* Hold to Speak */}
+          <View style={{ marginBottom: 24 }}>
             <Pressable
               disabled={isProcessing}
               onPressIn={startRecording}
@@ -231,15 +269,23 @@ export default function Voice() {
               style={({ pressed }) => ({
                 opacity: pressed || isProcessing ? 0.8 : 1,
                 transform: [{ scale: pressed ? 0.95 : 1 }],
+                marginHorizontal: 24,
+                paddingVertical: 16,
+                borderRadius: 16,
+                backgroundColor: isRecording ? "#EF4444" : "white",
+                shadowColor: "#000",
+                shadowOpacity: 0.15,
+                shadowRadius: 8,
+                elevation: 4,
+                alignItems: "center",
               })}
-              className={`mx-6 py-4 rounded-2xl shadow-lg ${
-                isRecording ? "bg-red-500" : "bg-white"
-              }`}
             >
               <Text
-                className={`text-xl font-bold text-center ${
-                  isRecording ? "text-white" : "text-[#7E22CE]"
-                }`}
+                style={{
+                  fontSize: 18,
+                  fontWeight: "bold",
+                  color: isRecording ? "white" : "#7E22CE",
+                }}
               >
                 {isProcessing
                   ? "Please Wait..."
@@ -250,12 +296,18 @@ export default function Voice() {
             </Pressable>
           </View>
 
-          <View className="mb-8">
+          {/* Finish */}
+          <View style={{ marginBottom: 32 }}>
             <Pressable
               style={({ pressed }) => ({
                 opacity: pressed ? 0.8 : 1,
+                marginHorizontal: 24,
+                paddingVertical: 16,
+                borderRadius: 16,
+                borderWidth: 2,
+                borderColor: "white",
+                alignItems: "center",
               })}
-              className="border-2 border-white mx-6 py-4 rounded-2xl"
               onPress={() => router.push("/(tabs)")}
             >
               <Text

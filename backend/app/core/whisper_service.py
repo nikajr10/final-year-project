@@ -329,6 +329,7 @@ CORRECTIONS = {
     "बढाइ": "Add", "बढा": "Add", "बढ्यो": "Add",
     "बढाउछ": "Add", "बढाउनु": "Add",
     "थप्यो": "Add", "थपा": "Add", "थापा": "Add", "थप": "Add", "धपा": "Add", "थावा": "Add",
+    "थबा": "Add", "थाबा": "Add",
     "थपिन्छ": "Add", "थपियो": "Add",
     "किन्यो": "Add", "किन्छु": "Add", "किन्यौं": "Add",
     "राख्यो": "Add", "राख": "Add", "राखियो": "Add",
@@ -360,7 +361,7 @@ CORRECTIONS = {
 
     "badhau": "Add", "badhaau": "Add", "badhayo": "Add",
     "badha": "Add", "badhyo": "Add", "badhaaou": "Add",
-    "thap": "Add", "thapaau": "Add", "thapyo": "Add",
+    "thap": "Add", "thapaau": "Add", "thapyo": "Add", "thaba": "Add", "thaaba": "Add",
     "kinyo": "Add", "kinchhau": "Add",
     "rakh": "Add", "rakhyo": "Add",
     "aayo": "Add", "aaucha": "Add",
@@ -530,10 +531,9 @@ class WhisperService:
         deduped = []
         prev    = None
         for w in final:
-            if w in _ACTIONS and w == prev:
-                continue
-            deduped.append(w)
-            prev = w
+            if w not in seen:
+                seen.add(w)
+                deduped.append(w)
 
         result = " ".join(w for w in deduped if w)
         result = " ".join(result.split())

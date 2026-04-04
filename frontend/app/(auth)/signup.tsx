@@ -1,5 +1,3 @@
-"use client";
-
 import { useRouter } from "expo-router";
 import React, { useMemo, useState } from "react";
 import {
@@ -35,39 +33,66 @@ export default function SignupScreen() {
 
   const handleSignup = async () => {
     if (validationError) {
-      Alert.alert("Fix signup details", validationError);
+      Alert.alert("Fix details", validationError);
       return;
     }
 
     setIsSubmitting(true);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
 
     try {
+      // Step 1: Register
       const res = await fetch(`${API_URL}/api/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: fullName.trim(),
           email: email.toLowerCase().trim(),
-          password: password,
+          password,
         }),
+        signal: controller.signal,
       });
 
+      clearTimeout(timer);
       const data = await res.json();
 
-      if (res.ok) {
-        // Optionally save user info immediately
-        await AsyncStorage.setItem("user_name", data.name || fullName.trim());
-        await AsyncStorage.setItem("user_token", data.token || "");
-        await AsyncStorage.setItem("user_id", data.id?.toString() || "0");
-
-        Alert.alert("✅ Signup Successful", "You are now logged in!");
-        router.replace("/profile");
-      } else {
-        Alert.alert("❌ Signup Failed", data.detail || "Something went wrong.");
+      if (!res.ok) {
+        Alert.alert("Signup Failed", data.detail || "Something went wrong.");
+        return;
       }
-    } catch (error) {
-      console.error(error);
-      Alert.alert("❌ Network Error", "Could not reach the server.");
+
+      // Step 2: Auto-login so the user gets a valid token
+      const loginController = new AbortController();
+      const loginTimer = setTimeout(() => loginController.abort(), FETCH_TIMEOUT_MS);
+
+      const loginRes = await fetch(`${API_URL}/api/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: email.toLowerCase().trim(),
+          password,
+        }),
+        signal: loginController.signal,
+      });
+
+      clearTimeout(loginTimer);
+      const loginData = await loginRes.json();
+
+      if (loginRes.ok && loginData.access_token) {
+        await AsyncStorage.setItem("access_token", loginData.access_token);
+        router.replace("/(tabs)");
+      } else {
+        // Registered but auto-login failed — send to login screen
+        Alert.alert("Account Created", "Please log in with your new credentials.");
+        router.replace("/(auth)/login");
+      }
+    } catch (error: any) {
+      clearTimeout(timer);
+      const msg = error?.name === "AbortError"
+        ? "Server took too long to respond."
+        : "Could not connect to the server.";
+      Alert.alert("Network Error", msg);
     } finally {
       setIsSubmitting(false);
     }
@@ -84,27 +109,20 @@ export default function SignupScreen() {
             Inventory Management
           </Text>
           <Text className="mt-2 text-center text-3xl font-extrabold text-purple-700 dark:text-purple-300">
-            Signup
+            Sign Up
           </Text>
 
-          {/* Full Name */}
-          <Text className="mt-6 text-sm font-semibold text-slate-600 dark:text-slate-300">
-            Full Name
-          </Text>
+          <Text className="mt-6 text-sm font-semibold text-slate-600 dark:text-slate-300">Full Name</Text>
           <TextInput
             value={fullName}
             onChangeText={setFullName}
             placeholder="e.g. Ram Bahadur"
             autoCapitalize="words"
             autoCorrect={false}
-            textContentType="name"
             className="mt-2 rounded-xl border border-slate-600 px-3 py-3 text-base text-zinc-900 dark:border-slate-500 dark:text-zinc-100"
           />
 
-          {/* Email */}
-          <Text className="mt-4 text-sm font-semibold text-slate-600 dark:text-slate-300">
-            Email
-          </Text>
+          <Text className="mt-4 text-sm font-semibold text-slate-600 dark:text-slate-300">Email</Text>
           <TextInput
             value={email}
             onChangeText={setEmail}
@@ -112,37 +130,27 @@ export default function SignupScreen() {
             autoCapitalize="none"
             autoCorrect={false}
             keyboardType="email-address"
-            textContentType="emailAddress"
             className="mt-2 rounded-xl border border-slate-600 px-3 py-3 text-base text-zinc-900 dark:border-slate-500 dark:text-zinc-100"
           />
 
-          {/* Password */}
-          <Text className="mt-4 text-sm font-semibold text-slate-600 dark:text-slate-300">
-            Password
-          </Text>
+          <Text className="mt-4 text-sm font-semibold text-slate-600 dark:text-slate-300">Password</Text>
           <TextInput
             value={password}
             onChangeText={setPassword}
-            placeholder="••••••"
+            placeholder="Min. 6 characters"
             secureTextEntry
-            textContentType="newPassword"
             className="mt-2 rounded-xl border border-slate-600 px-3 py-3 text-base text-zinc-900 dark:border-slate-500 dark:text-zinc-100"
           />
 
-          {/* Confirm Password */}
-          <Text className="mt-4 text-sm font-semibold text-slate-600 dark:text-slate-300">
-            Confirm Password
-          </Text>
+          <Text className="mt-4 text-sm font-semibold text-slate-600 dark:text-slate-300">Confirm Password</Text>
           <TextInput
             value={confirmPassword}
             onChangeText={setConfirmPassword}
             placeholder="••••••"
             secureTextEntry
-            textContentType="newPassword"
             className="mt-2 rounded-xl border border-slate-600 px-3 py-3 text-base text-zinc-900 dark:border-slate-500 dark:text-zinc-100"
           />
 
-          {/* Signup Button */}
           <Pressable
             onPress={handleSignup}
             disabled={isSubmitting}
@@ -153,11 +161,10 @@ export default function SignupScreen() {
             ]}
           >
             <Text className="text-base font-bold text-white">
-              {isSubmitting ? "Creating..." : "Sign up"}
+              {isSubmitting ? "Creating account..." : "Sign up"}
             </Text>
           </Pressable>
 
-          {/* Login Redirect */}
           <Pressable
             onPress={() => router.push("/(auth)/login")}
             className="mt-4 items-center py-2"

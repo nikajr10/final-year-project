@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 from app.db.session import get_db
 from app.db.models import User
-from app.schemas.auth import UserLogin, Token, UserCreate # <-- Import UserCreate
-from app.core.security import verify_password, create_access_token, get_password_hash # <-- Import get_password_hash
+from app.schemas.auth import UserLogin, Token, UserCreate
+from app.core.security import verify_password, create_access_token, get_password_hash
 from datetime import timedelta
 
 router = APIRouter()
@@ -54,11 +55,18 @@ def register(user_in: UserCreate, db: Session = Depends(get_db)):
     
     # 4. Save to database
     db.add(new_user)
-    db.commit()
-    db.refresh(new_user)
-    
+    try:
+        db.commit()
+        db.refresh(new_user)
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="A user with this name or email already exists."
+        )
+
     return {
-        "status": "success", 
-        "message": "User created successfully", 
+        "status": "success",
+        "message": "User created successfully",
         "user_email": new_user.email
     }

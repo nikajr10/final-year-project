@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import {
   KeyboardAvoidingView,
   Platform,
@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import { useFocusEffect } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { API_URL } from "../../constants/Config";
+import { API_URL, FETCH_TIMEOUT_MS } from "../../constants/Config";
 
 // FIX 3: Match the exact schema your Swagger just showed us
 interface Product {
@@ -28,13 +28,25 @@ export default function InventoryScreen() {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const fetchInFlight = useRef(false);
 
-  const fetchProducts = async () => {
+  const fetchProducts = async (isRefresh = false) => {
+    if (fetchInFlight.current) return;
+    fetchInFlight.current = true;
+
+    if (isRefresh) setRefreshing(true);
+    else setLoading(true);
+    setError(null);
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+
     try {
       const token = await AsyncStorage.getItem("access_token");
-      if (!token) return;
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
 
-      // FIX 1: Exact /stock endpoint
       const response = await fetch(`${API_URL}/stock`, {
         method: "GET",
         headers: {
@@ -51,13 +63,19 @@ export default function InventoryScreen() {
         setProducts(inventoryList);
         setFilteredProducts(inventoryList);
       } else {
-        console.error("Failed to fetch inventory:", data);
+        setError("Failed to load inventory.");
       }
-    } catch (error) {
-      console.error("Error fetching inventory:", error);
+    } catch (err: any) {
+      clearTimeout(timer);
+      if (err?.name === "AbortError") {
+        setError("Request timed out. Is the backend running?");
+      } else {
+        setError("Cannot connect to server.");
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
+      fetchInFlight.current = false;
     }
   };
 
@@ -66,6 +84,14 @@ export default function InventoryScreen() {
       fetchProducts();
     }, []),
   );
+
+  function matchesSearch(p: Product, text: string) {
+    const q = text.toUpperCase();
+    return (
+      p.item.toUpperCase().includes(q) ||
+      p.item_nepali.toUpperCase().includes(q)
+    );
+  }
 
   const handleSearch = (text: string) => {
     setSearch(text);
@@ -128,13 +154,13 @@ export default function InventoryScreen() {
       <TextInput
         value={search}
         onChangeText={handleSearch}
-        placeholder="Search By Name (English or Nepali)"
+        placeholder="Search by name (English or Nepali)"
         className="bg-slate-100 border border-slate-300 rounded-xl px-4 py-4 my-6 text-base"
       />
 
       <View className="flex-row justify-between items-center mb-4">
         <Text className="font-semibold text-lg text-slate-600">
-          Items List ({filteredProducts.length})
+          Items ({filteredProducts.length})
         </Text>
         <Pressable
           onPress={fetchProducts}
@@ -149,10 +175,20 @@ export default function InventoryScreen() {
           <ActivityIndicator size="large" color="#7E22CE" />
           <Text className="mt-2 text-slate-400">Loading Inventory...</Text>
         </View>
+      ) : error ? (
+        <View className="flex-1 justify-center items-center px-4">
+          <Text className="text-red-600 text-center font-semibold">{error}</Text>
+          <Pressable
+            onPress={() => fetchProducts()}
+            className="mt-4 bg-purple-700 px-6 py-3 rounded-xl"
+          >
+            <Text className="text-white font-bold">Retry</Text>
+          </Pressable>
+        </View>
       ) : (
         <FlatList
           data={filteredProducts}
-          keyExtractor={(item, index) => index.toString()}
+          keyExtractor={(_, index) => index.toString()}
           renderItem={renderItem}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingBottom: 100 }}
