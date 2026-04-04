@@ -326,3 +326,7 @@ export default function Voice() {
     </>
   );
 }
+
+function setStatusText(arg0: string) {
+  throw new Error("Function not implemented.");
+}

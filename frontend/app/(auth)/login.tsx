@@ -11,7 +11,6 @@ import {
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { API_URL } from "../../constants/Config";
-const FETCH_TIMEOUT_MS = 10000;
 
 // 🚨 REPLACE WITH YOUR COMPUTER'S LOCAL IP ADDRESS
 // Find it by running `ipconfig` (Windows) or `ipconfig getifaddr en0` (Mac)
