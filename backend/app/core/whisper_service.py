@@ -510,9 +510,10 @@ class WhisperService:
         deduped = []
         prev    = None
         for w in final:
-            if w not in seen:
-                seen.add(w)
-                deduped.append(w)
+            if w in _ACTIONS and w == prev:
+                continue
+            deduped.append(w)
+            prev = w
 
         result = " ".join(w for w in deduped if w)
         result = " ".join(result.split())
