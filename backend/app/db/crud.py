@@ -3,19 +3,51 @@ crud.py
 =======
 SmartBiz AI — Atomic Database Operations
 
-Design rules:
-  • Every function accepts an active Session — never opens its own connection.
-  • Every function commits internally — the caller never needs to call db.commit().
-  • Every function returns a plain dict — routes stay decoupled from ORM objects.
-  • Error conditions are returned as {"success": False, ...} — never raised,
-    so FastAPI route handlers can pass them straight to JSONResponse.
+Race-condition fix in deduct_inventory:
+  OLD (unsafe):
+      product = db.get(Product, id)        # read stock into Python
+      product.current_stock -= quantity    # math in Python
+      db.commit()                          # write back
+      ↑ Two concurrent requests both read the same stock value,
+        both subtract, both commit — one subtraction is silently lost.
+
+  NEW (safe) — row-level locking with SELECT ... FOR UPDATE:
+      product = db.get(Product, id, with_lockmode="update")
+      # PostgreSQL now holds an exclusive row lock.
+      # Any second request trying to read the same row blocks here
+      # until the first transaction commits and releases the lock.
+      # The second request then reads the ALREADY-UPDATED value.
+      product.current_stock -= quantity
+      db.commit()   # lock released here
+
+  The stock-below-zero guard runs AFTER acquiring the lock so the
+  check and the write are atomic — no other transaction can sneak in
+  between the check and the commit.
+
+  add_inventory uses the same locking pattern for consistency.
 """
 
 from __future__ import annotations
 
 from sqlalchemy.orm import Session
+from sqlalchemy import select
 
 from app.db.models import Product
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# CUSTOM EXCEPTIONS
+# Routes catch these for clean JSON error responses.
+# ══════════════════════════════════════════════════════════════════════════════
+
+class InsufficientStockError(Exception):
+    """Raised when a deduction would push stock below zero."""
+    pass
+
+
+class ProductNotFoundError(Exception):
+    """Raised when the product_id does not exist in the database."""
+    pass
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -28,87 +60,71 @@ def deduct_inventory(
     quantity:   int,
 ) -> dict:
     """
-    Subtract `quantity` units from Product.current_stock and persist the change.
+    Atomically subtract `quantity` from Product.current_stock.
+
+    Uses SELECT FOR UPDATE to acquire a row-level exclusive lock before
+    reading the stock value.  This prevents the race condition where two
+    concurrent requests both read the same stock and both subtract,
+    causing one subtraction to be silently lost.
 
     Parameters
     ----------
     db_session : Session
-        Active SQLAlchemy session (injected by FastAPI Depends(get_db)).
     product_id : int
-        Primary key of the product to update.
-    quantity   : int
-        Number of units to deduct.  Must be > 0.
+    quantity   : int  — must be > 0
 
     Returns
     -------
-    dict — always contains at minimum:
-        success (bool)   — True on success, False on any error condition
-        message (str)    — Human-readable result or error description
+    dict with success=True and updated product details.
 
-    On success, additionally contains:
-        product_id   (int)
-        name_english (str)
-        name_nepali  (str)
-        qty_deducted (int)
-        new_stock    (int | float)
-        unit         (str)
-
-    Error cases handled (success=False, never raises):
-        • quantity <= 0
-        • Product ID not found
-        • Resulting stock would go below zero
+    Raises
+    ------
+    ValueError            — quantity <= 0
+    ProductNotFoundError  — product_id not in DB
+    InsufficientStockError— stock would go below zero
     """
 
     # ── Guard: valid quantity ─────────────────────────────────────────────────
     if quantity <= 0:
-        return {
-            "success":    False,
-            "product_id": product_id,
-            "message":    (
-                f"Quantity must be greater than zero (received: {quantity}). "
-                "Please say a positive number."
-            ),
-        }
+        raise ValueError(
+            f"Quantity must be > 0 (received: {quantity})."
+        )
 
-    # ── Fetch product ─────────────────────────────────────────────────────────
-    product: Product | None = db_session.get(Product, product_id)
+    # ── Acquire row-level lock (SELECT ... FOR UPDATE) ────────────────────────
+    # PostgreSQL holds an exclusive lock on this row until db_session.commit().
+    # Any concurrent transaction that tries to lock the same row blocks here
+    # and waits — it will read the post-commit stock value when it unblocks.
+    product: Product | None = db_session.scalars(
+        select(Product)
+        .where(Product.id == product_id)
+        .with_for_update()          # ← the key line — acquires row lock
+    ).first()
 
     if product is None:
-        return {
-            "success":    False,
-            "product_id": product_id,
-            "message":    (
-                f"Product with id={product_id} was not found in the database. "
-                "The product catalogue may need to be updated."
-            ),
-        }
+        raise ProductNotFoundError(
+            f"Product id={product_id} not found in database."
+        )
 
     # ── Guard: sufficient stock ───────────────────────────────────────────────
+    # This check is now atomic with the subsequent write because we hold the
+    # row lock — no other transaction can modify current_stock between here
+    # and the commit below.
     if product.current_stock < quantity:
-        return {
-            "success":      False,
-            "product_id":   product_id,
-            "name_english": product.name_english,
-            "name_nepali":  product.name_nepali,
-            "unit":         product.unit,
-            "message": (
-                f"Insufficient stock: tried to remove {quantity} {product.unit} "
-                f"of '{product.name_english}', but only "
-                f"{_fmt(product.current_stock)} {product.unit} in stock. "
-                "No change was made."
-            ),
-        }
+        raise InsufficientStockError(
+            f"Insufficient stock: tried to remove {quantity} {product.unit} "
+            f"of '{product.name_english}', but only "
+            f"{_fmt(product.current_stock)} {product.unit} available."
+        )
 
-    # ── Deduct + persist ──────────────────────────────────────────────────────
+    # ── Atomic deduct + commit (releases lock) ────────────────────────────────
     product.current_stock -= quantity
     db_session.commit()
-    db_session.refresh(product)   # reload from DB to confirm the written value
+    db_session.refresh(product)
 
     new_stock = _fmt(product.current_stock)
-
     print(
         f"   ✅ Deducted {quantity} {product.unit} of "
-        f"'{product.name_english}'. New stock: {new_stock} {product.unit}."
+        f"'{product.name_english}'. New stock: {new_stock}."
     )
 
     return {
@@ -132,37 +148,32 @@ def add_inventory(
     quantity:   int,
 ) -> dict:
     """
-    Add `quantity` units to Product.current_stock and persist the change.
-
-    Same contract as deduct_inventory — returns a plain dict with
-    success/message keys so route handlers require zero conditional logic.
+    Atomically add `quantity` to Product.current_stock.
+    Uses the same SELECT FOR UPDATE locking pattern as deduct_inventory.
     """
 
     if quantity <= 0:
-        return {
-            "success":    False,
-            "product_id": product_id,
-            "message":    f"Quantity must be greater than zero (received: {quantity}).",
-        }
+        raise ValueError(f"Quantity must be > 0 (received: {quantity}).")
 
-    product: Product | None = db_session.get(Product, product_id)
+    product: Product | None = db_session.scalars(
+        select(Product)
+        .where(Product.id == product_id)
+        .with_for_update()
+    ).first()
 
     if product is None:
-        return {
-            "success":    False,
-            "product_id": product_id,
-            "message":    f"Product with id={product_id} not found.",
-        }
+        raise ProductNotFoundError(
+            f"Product id={product_id} not found in database."
+        )
 
     product.current_stock += quantity
     db_session.commit()
     db_session.refresh(product)
 
     new_stock = _fmt(product.current_stock)
-
     print(
         f"   ✅ Added {quantity} {product.unit} of "
-        f"'{product.name_english}'. New stock: {new_stock} {product.unit}."
+        f"'{product.name_english}'. New stock: {new_stock}."
     )
 
     return {
@@ -185,23 +196,21 @@ def get_stock(
     product_id: int,
 ) -> dict:
     """
-    Return current stock level for a single product without modifying anything.
+    Return current stock for a single product — read-only, no lock needed.
     """
 
     product: Product | None = db_session.get(Product, product_id)
 
     if product is None:
-        return {
-            "success":    False,
-            "product_id": product_id,
-            "message":    f"Product with id={product_id} not found.",
-        }
+        raise ProductNotFoundError(
+            f"Product id={product_id} not found in database."
+        )
 
     return {
-        "success":      True,
-        "product_id":   product.id,
-        "name_english": product.name_english,
-        "name_nepali":  product.name_nepali,
+        "success":       True,
+        "product_id":    product.id,
+        "name_english":  product.name_english,
+        "name_nepali":   product.name_nepali,
         "current_stock": _fmt(product.current_stock),
         "unit":          product.unit,
         "message": (
@@ -212,12 +221,9 @@ def get_stock(
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# PRIVATE HELPERS
+# HELPERS
 # ══════════════════════════════════════════════════════════════════════════════
 
 def _fmt(qty: float) -> int | float:
-    """
-    Return int for whole numbers (10.0 → 10), float for fractions (1.5 → 1.5).
-    Keeps JSON responses clean — no trailing '.0' on integer quantities.
-    """
+    """10.0 → 10,  1.5 → 1.5  (keeps JSON clean)."""
     return int(qty) if qty == int(qty) else qty
