@@ -1,6 +1,6 @@
 import { Image } from "expo-image";
 import { router, useFocusEffect } from "expo-router";
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useRef } from "react";
 import {
   KeyboardAvoidingView,
   Platform,
@@ -12,7 +12,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { API_URL } from "../../constants/Config";
+import { API_URL, FETCH_TIMEOUT_MS } from "../../constants/Config";
 
 const Microphone = require("../../assets/images/Microphone.png");
 const Sales = require("../../assets/images/Sales.png");

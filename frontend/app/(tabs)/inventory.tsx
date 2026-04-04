@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import { useFocusEffect } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { API_URL } from "../../constants/Config";
+import { API_URL, FETCH_TIMEOUT_MS } from "../../constants/Config";
 
 // FIX 3: Match the exact schema your Swagger just showed us
 interface Product {
