@@ -33,6 +33,7 @@ import numpy as np
 from difflib import SequenceMatcher
 
 from fastapi import FastAPI, UploadFile, File, Depends
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from sentence_transformers import SentenceTransformer
@@ -49,6 +50,14 @@ from app.api import auth, reports
 # ══════════════════════════════════════════════════════════════════════════════
 
 app = FastAPI(title="SmartBiz AI Backend")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],   # tighten to specific origins in production
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 app.include_router(auth.router,    prefix="/api/auth",    tags=["Authentication"])
 app.include_router(reports.router, prefix="/api/reports", tags=["Reports"])
 

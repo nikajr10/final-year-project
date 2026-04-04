@@ -1,6 +1,6 @@
 import { Image } from "expo-image";
-import { router, useFocusEffect } from "expo-router"; 
-import React, { useState, useCallback } from "react";
+import { router, useFocusEffect } from "expo-router";
+import React, { useState, useCallback, useRef } from "react";
 import {
   KeyboardAvoidingView,
   Platform,
@@ -12,8 +12,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-
-const API_URL = "http://192.168.1.92:8000";
+import { API_URL, FETCH_TIMEOUT_MS } from "../../constants/Config";
 
 const Microphone = require("../../assets/images/Microphone.png");
 const Sales = require("../../assets/images/Sales.png");
@@ -21,13 +20,14 @@ const Inventory = require("../../assets/images/inventory.png");
 const Alertimg = require("../../assets/images/Alert-Danger.png");
 
 export default function HomeScreen() {
-  const [name, setName] = useState("Admin");
+  const [name] = useState("Admin");
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     totalUnits: 0,
     inventoryCount: 0,
-    lowStockItems: []
+    lowStockItems: [] as any[],
   });
+  const fetchInFlight = useRef(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -36,47 +36,41 @@ export default function HomeScreen() {
   );
 
   const fetchDashboardData = async () => {
+    if (fetchInFlight.current) return;
+    fetchInFlight.current = true;
+    setLoading(true);
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+
     try {
-      setLoading(true);
-
       const token = await AsyncStorage.getItem("access_token");
-      if (!token) {
-        console.error("No token found. User might not be logged in.");
-        return;
-      }
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
 
-      // FIX 1: Exact /stock endpoint
       const response = await fetch(`${API_URL}/stock`, {
         method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}` 
-        }
+        headers,
+        signal: controller.signal,
       });
 
+      clearTimeout(timer);
       const data = await response.json();
 
       if (response.ok && data.status === "success") {
-        // FIX 2: Extract the array from data.inventory
         const products = data.inventory;
-        
-        // Calculate Stats
-        const lowStock = products.filter((p: any) => p.current_stock < 10);
-        const totalItems = products.length;
-        const totalPhysicalUnits = products.reduce((sum: number, p: any) => sum + (p.current_stock || 0), 0);
-
         setStats({
-          totalUnits: totalPhysicalUnits, 
-          inventoryCount: totalItems,
-          lowStockItems: lowStock
+          totalUnits: products.reduce((sum: number, p: any) => sum + (p.current_stock || 0), 0),
+          inventoryCount: products.length,
+          lowStockItems: products.filter((p: any) => p.current_stock < 10),
         });
-      } else {
-        console.error("Failed to fetch stock:", data);
       }
-    } catch (error) {
-      console.error("Error fetching dashboard:", error);
+    } catch {
+      clearTimeout(timer);
+      // Fail silently — dashboard shows zeros, user can still navigate
     } finally {
       setLoading(false);
+      fetchInFlight.current = false;
     }
   };
 

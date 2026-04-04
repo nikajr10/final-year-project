@@ -10,10 +10,7 @@ import {
   View,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-
-// 🚨 REPLACE WITH YOUR COMPUTER'S LOCAL IP ADDRESS
-// Find it by running `ipconfig` (Windows) or `ipconfig getifaddr en0` (Mac)
-const API_URL = "http://192.168.1.92:8000"; // your local backend IP
+import { API_URL, FETCH_TIMEOUT_MS } from "../../constants/Config";
 
 
 export default function LoginScreen() {
@@ -29,19 +26,19 @@ export default function LoginScreen() {
     }
 
     setIsSubmitting(true);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
     try {
-      console.log(`🔌 Attempting login to: ${API_URL}/api/auth/login`);
-
       const response = await fetch(`${API_URL}/api/auth/login`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          email: email.toLowerCase().trim(), // Ensure email format is clean
-          password: password,
+          email: email.toLowerCase().trim(),
+          password,
         }),
+        signal: controller.signal,
       });
+      clearTimeout(timer);
 
       const data = await response.json();
 
@@ -61,12 +58,13 @@ export default function LoginScreen() {
         // ❌ Login Failed (Wrong password, etc.)
         Alert.alert("Login Failed", data.detail || "Invalid credentials.");
       }
-    } catch (error) {
-      console.error("❌ Network Error:", error);
-      Alert.alert(
-        "Connection Error",
-        "Could not connect to the server. Check your Wi-Fi and IP address."
-      );
+    } catch (error: any) {
+      clearTimeout(timer);
+      console.error("Network Error:", error);
+      const msg = error?.name === "AbortError"
+        ? "Server took too long to respond."
+        : "Could not connect to the server.";
+      Alert.alert("Connection Error", msg);
     } finally {
       setIsSubmitting(false);
     }

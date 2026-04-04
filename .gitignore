@@ -8,6 +8,7 @@ __pycache__/
 venv/
 ENV/
 env/
+.env/
 
 # Ignore large binary files and libraries
 *.dylib

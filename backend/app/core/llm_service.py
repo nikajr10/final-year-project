@@ -89,7 +89,7 @@ ACTION_ALIASES = {
     # Romanized
     "badhau": "ADD", "badhaau": "ADD", "badhayo": "ADD",
     "badha": "ADD", "badhyo": "ADD",
-    "thap": "ADD", "thapaau": "ADD", "thapyo": "ADD",
+    "thap": "ADD", "thapaau": "ADD", "thapyo": "ADD", "thaba": "ADD", "thaaba": "ADD",
     "kinyo": "ADD", "rakh": "ADD", "aayo": "ADD",
 
     # ── REMOVE (ghatau) — stock goes DOWN ───────────────────────────────────
