@@ -31,6 +31,7 @@ import uuid
 import shutil
 import numpy as np
 from difflib import SequenceMatcher
+from app.api import routes as voice_routes
 
 from fastapi import FastAPI, UploadFile, File, Depends
 from sqlalchemy import select
@@ -53,7 +54,7 @@ app = FastAPI(title="SmartBiz AI Backend")
 app.include_router(auth.router,    prefix="/api/auth",    tags=["Authentication"])
 app.include_router(reports.router, prefix="/api/reports", tags=["Reports"])
 app.include_router(chatbot.router, prefix="/api/chat", tags=["AI Chatbot"])
-
+app.include_router(voice_routes.router, prefix="/api/inventory", tags=["Voice Inventory"])
 
 # ══════════════════════════════════════════════════════════════════════════════
 # AI MODEL INITIALIZATION
