@@ -1,5 +1,5 @@
 // Use the IP address of the backend laptop here
-const BACKEND_IP = "192.168.110.174";
+const BACKEND_IP = "192.168.1.92";
 
 export const API_URL = `http://${BACKEND_IP}:8000`;
 
