@@ -3,75 +3,60 @@ whisper_service.py
 ==================
 Nepali Voice Inventory System — Audio Transcription + Pre-processing
 
-PERMANENT NUMBER SOLUTION:
-  Step 0: Convert Devanagari digit characters (१२३...) → Arabic (123...)
-           This handles ANY number of any size, forever.
-  Step 1: Exact dict — Nepali number words (एक, दुई, ... सय) → digits
-  Step 2: Exact dict — items, units, actions
-  Step 3: Prefix-tree — catches any Devanagari item/action mishear not in dict
-  Step 4: Deduplicate repeated canonical tokens
-  Step 5: Synonym disambiguation — generic "biscuit" → "Digestive Biscuit"
-  Step 6: Extract quantity (first integer token) from cleaned string
-
-DEVANAGARI PREFIX-TREE (item disambiguation by character):
-  ┌─────────────────────────────────────────────────────────────────┐
-  │  1st CHAR  →  ITEM                                             │
-  │  अ  → Eggs                                                     │
-  │  ड  → Lentils   (only ड, NOT द — see NUMBER SAFETY note)      │
-  │  त  → Oil                                                      │
-  │  न  → Salt                                                     │
-  │  म  → Flour  (covers महिदा, मेदा, मईदा, मइदा, माइदा, ...)    │
-  │  व  → Turmeric  (वेसार alternate)                             │
-  │  च + चा → Rice                                                 │
-  │  च + चि + चिन → Sugar                                         │
-  │  च + चि + चिउ/चिो → Beaten_Rice                              │
-  │  ब + बे → Turmeric                                             │
-  │  ब + बि → Biscuits                                             │
-  │  ब + बढ → Add (verb)                                           │
-  │                                                                 │
-  │  NUMBER SAFETY: द-words (दाल excluded intentionally)           │
-  │  All Nepali number words starting with द (दश, दस, दास, दुई,   │
-  │  दुइटा) are caught in STEP 1 dict BEFORE the prefix tree runs. │
-  │  The prefix tree only sees द if dict missed it → Lentils.      │
-  └─────────────────────────────────────────────────────────────────┘
+BISCUIT ROUTING LOGIC:
+  "tiger biscuit"    → Tiger Biscuit     (multi-word dict entry, caught first)
+  "digestive biscuit"→ Digestive Biscuit (multi-word dict entry, caught first)
+  "biscuit" alone    → Digestive Biscuit (synonym fallback rule)
 """
 
 import re
 import whisper
 
-
-# ══════════════════════════════════════════════════════════════════════════════
-# DEVANAGARI DIGIT CHARACTERS → ARABIC DIGITS
-# Handles numbers like १०, ५, २५, १००, ५०० — any size, permanently
-# ══════════════════════════════════════════════════════════════════════════════
-
 _DEVA_DIGITS = "०१२३४५६७८९"
 
 
 def _convert_devanagari_numerals(text: str) -> str:
-    """
-    Convert Devanagari digit characters to Arabic digits.
-    '१०' → '10',  '५०' → '50',  '१२३' → '123', etc.
-    Works for any number, no upper limit.
-    """
     return "".join(
         str(_DEVA_DIGITS.index(ch)) if ch in _DEVA_DIGITS else ch
         for ch in text
     )
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# LAYER 1 — EXACT MATCH DICTIONARY
-# Numbers MUST come before items/actions — number words like दश, दस, दास
-# start with 'द' which is also the first char of दाल (Lentils).
-# Dict replaces them first so prefix-tree never sees them as Lentils.
-# ══════════════════════════════════════════════════════════════════════════════
-
 CORRECTIONS = {
 
-    # ──────────────────────────────────────────────────────────────────────────
-    # NUMBERS 1–10 (Devanagari words + Romanized + hallucinations)
-    # ──────────────────────────────────────────────────────────────────────────
+    # ══════════════════════════════════════════════════════════════════════════
+    # MULTI-WORD ITEMS — must be here so longest-key-first catches them
+    # BEFORE the single-word "biscuit" entry fires.
+    # ══════════════════════════════════════════════════════════════════════════
+
+    # Tiger Biscuit — all phonetic variants
+    "tiger biscuit":     "Tiger Biscuit",
+    "tiger biscuits":    "Tiger Biscuit",
+    "tiger biskut":      "Tiger Biscuit",
+    "tiger biskutt":     "Tiger Biscuit",
+    "tiger biscut":      "Tiger Biscuit",
+    "taiger biscuit":    "Tiger Biscuit",
+    "taiger biskut":     "Tiger Biscuit",
+    "tigger biscuit":    "Tiger Biscuit",
+    "tigger biskut":     "Tiger Biscuit",
+    "टाइगर बिस्कुट":    "Tiger Biscuit",
+    "टाइगर बिस्किट":    "Tiger Biscuit",
+
+    # Digestive Biscuit — all phonetic variants
+    "digestive biscuit":  "Digestive Biscuit",
+    "digestive biscuits": "Digestive Biscuit",
+    "digestive biskut":   "Digestive Biscuit",
+    "digestive biskutt":  "Digestive Biscuit",
+    "digestive biscut":   "Digestive Biscuit",
+    "dajestiv biscuit":   "Digestive Biscuit",
+    "daigestive biscuit": "Digestive Biscuit",
+    "dijestive biscuit":  "Digestive Biscuit",
+    "डाइजेस्टिभ बिस्कुट": "Digestive Biscuit",
+    "डाइजेस्टिभ बिस्किट": "Digestive Biscuit",
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # NUMBERS 1–10
+    # ══════════════════════════════════════════════════════════════════════════
 
     "एउटा": "1", "एक": "1", "एउ": "1",
     "ek": "1", "aek": "1", "euta": "1", "euka": "1",
@@ -103,9 +88,9 @@ CORRECTIONS = {
     "दश": "10", "दस": "10", "दास": "10", "दाश": "10",
     "das": "10", "dass": "10", "dasa": "10", "dash": "10",
 
-    # ──────────────────────────────────────────────────────────────────────────
-    # NUMBERS 11–19
-    # ──────────────────────────────────────────────────────────────────────────
+    # ══════════════════════════════════════════════════════════════════════════
+    # NUMBERS 11–100
+    # ══════════════════════════════════════════════════════════════════════════
 
     "एघार": "11", "एघारा": "11", "eghar": "11",
     "बाह्र": "12", "बाह्रा": "12", "bahra": "12",
@@ -116,10 +101,6 @@ CORRECTIONS = {
     "सत्र": "17", "सत्रा": "17", "satra": "17",
     "अठार": "18", "अठारा": "18", "athara": "18",
     "उन्नाइस": "19", "unnaisa": "19",
-
-    # ──────────────────────────────────────────────────────────────────────────
-    # NUMBERS 20–100 (tens + most common compounds)
-    # ──────────────────────────────────────────────────────────────────────────
 
     "बीस": "20", "बिस": "20", "bees": "20", "bis": "20",
     "एकाइस": "21", "ekkais": "21",
@@ -211,9 +192,9 @@ CORRECTIONS = {
 
     "सय": "100", "एकसय": "100", "say": "100",
 
-    # ──────────────────────────────────────────────────────────────────────────
+    # ══════════════════════════════════════════════════════════════════════════
     # UNITS
-    # ──────────────────────────────────────────────────────────────────────────
+    # ══════════════════════════════════════════════════════════════════════════
 
     "किलोग्राम": "kg", "किलोग": "kg", "किलो": "kg", "किलु": "kg",
     "kilo": "kg", "killo": "kg", "kilu": "kg", "kilogram": "kg",
@@ -234,9 +215,9 @@ CORRECTIONS = {
     "liter": "liter", "litre": "liter", "litar": "liter",
     "liters": "liter", "litres": "liter",
 
-    # ──────────────────────────────────────────────────────────────────────────
-    # ITEMS — DEVANAGARI
-    # ──────────────────────────────────────────────────────────────────────────
+    # ══════════════════════════════════════════════════════════════════════════
+    # ITEMS — DEVANAGARI (single-word)
+    # ══════════════════════════════════════════════════════════════════════════
 
     "चामल": "Rice", "चाामल": "Rice", "चाम": "Rice",
     "चामल्": "Rice", "चामाल": "Rice", "चामले": "Rice",
@@ -270,13 +251,15 @@ CORRECTIONS = {
     "चिउरा": "Beaten_Rice", "चिउरो": "Beaten_Rice",
     "चिउराहरू": "Beaten_Rice", "चिउर": "Beaten_Rice",
 
+    # Generic biscuit (single word) → stays as "Biscuits" here;
+    # synonym rule in Step 6 upgrades it to "Digestive Biscuit"
     "बिस्कुट": "Biscuits", "बिस्किट": "Biscuits",
     "बिस्कुट्": "Biscuits", "बिस्कुटहरू": "Biscuits",
     "बिस्किटहरू": "Biscuits", "बिस्कोट": "Biscuits",
 
-    # ──────────────────────────────────────────────────────────────────────────
-    # ITEMS — ROMANIZED
-    # ──────────────────────────────────────────────────────────────────────────
+    # ══════════════════════════════════════════════════════════════════════════
+    # ITEMS — ROMANIZED (single-word)
+    # ══════════════════════════════════════════════════════════════════════════
 
     "chamal": "Rice", "chaamal": "Rice", "chaaml": "Rice",
     "ryce": "Rice", "samal": "Rice", "rice": "Rice",
@@ -307,12 +290,13 @@ CORRECTIONS = {
     "chiora": "Beaten_Rice", "chiuro": "Beaten_Rice",
     "beaten rice": "Beaten_Rice", "beaten_rice": "Beaten_Rice",
 
+    # Generic biscuit single-word forms — synonym rule upgrades to Digestive Biscuit
     "biskut": "Biscuits", "biscut": "Biscuits",
     "biscuit": "Biscuits", "biscuits": "Biscuits", "biskutt": "Biscuits",
 
-    # ──────────────────────────────────────────────────────────────────────────
+    # ══════════════════════════════════════════════════════════════════════════
     # ACTIONS — DEVANAGARI
-    # ──────────────────────────────────────────────────────────────────────────
+    # ══════════════════════════════════════════════════════════════════════════
 
     "घटाउ": "Remove", "घटाउँ": "Remove", "घटायो": "Remove",
     "घटाइ": "Remove", "घटा": "Remove", "घटाव": "Remove",
@@ -344,9 +328,9 @@ CORRECTIONS = {
     "छन्": "Check",
     "चेक": "Check", "स्टक": "Check",
 
-    # ──────────────────────────────────────────────────────────────────────────
+    # ══════════════════════════════════════════════════════════════════════════
     # ACTIONS — ROMANIZED
-    # ──────────────────────────────────────────────────────────────────────────
+    # ══════════════════════════════════════════════════════════════════════════
 
     "ghatau": "Remove", "ghataau": "Remove", "ghata": "Remove",
     "ghatayo": "Remove", "ghatai": "Remove",
@@ -374,49 +358,51 @@ CORRECTIONS = {
     "how much": "Check", "how many": "Check",
 }
 
-# Quick lookup sets
-_ITEMS   = {"Rice", "Lentils", "Salt", "Sugar", "Oil", "Flour",
-             "Turmeric", "Eggs", "Beaten_Rice", "Biscuits",
-             "Digestive Biscuit", "Tiger Biscuit"}
+_ITEMS = {
+    "Rice", "Lentils", "Salt", "Sugar", "Oil", "Flour",
+    "Turmeric", "Eggs", "Beaten_Rice", "Biscuits",
+    "Digestive Biscuit", "Tiger Biscuit",
+}
 _ACTIONS = {"Add", "Remove", "Check"}
 _UNITS   = {"kg", "pieces", "packet", "liter"}
 
 # ══════════════════════════════════════════════════════════════════════════════
-# SYNONYM DISAMBIGUATION TABLE
-# Maps generic spoken tokens → specific product names.
-# Only fires when no variant keyword (tiger / digestive) is already present.
-# Add new rows here as your product catalogue grows.
+# SYNONYM RULES
+#
+# This runs AFTER the dict replaces multi-word entries.
+# By the time we reach here:
+#   "tiger biscuit"     → already "Tiger Biscuit"    (dict caught it)
+#   "digestive biscuit" → already "Digestive Biscuit" (dict caught it)
+#   "biscuit" alone     → still "Biscuits"            (synonym upgrades it)
 # ══════════════════════════════════════════════════════════════════════════════
 
 _SYNONYM_RULES: list[dict] = [
     {
-        # Generic "biscuit/biskut/biscuits" with no variant → Digestive Biscuit
-        "trigger_tokens":  {"biscuits", "biscuit", "biskut", "biskutt", "biscut"},
-        "variant_tokens":  {"tiger", "digestive"},
-        "replace_with":    "Digestive Biscuit",
-        "log_label":       "biscuit → Digestive Biscuit",
+        # Only fires on standalone "Biscuits" with NO tiger/digestive context
+        "trigger_pattern": re.compile(
+            r"\b(biscuits?|biskutt?|biscut)\b",
+            re.IGNORECASE,
+        ),
+        "guard_pattern": re.compile(
+            r"\b(tiger|taiger|tigger|taigar"
+            r"|digestive|dajestiv|daigestive|dijestive"
+            r"|Tiger Biscuit|Digestive Biscuit)\b",
+            re.IGNORECASE,
+        ),
+        "replace_with": "Digestive Biscuit",
+        "log_label":    "generic biscuit → Digestive Biscuit",
     },
-    # ── Add more rules here as needed, e.g.:
-    # {
-    #     "trigger_tokens": {"oil", "tel"},
-    #     "variant_tokens": {"mustard", "sunflower", "soybean"},
-    #     "replace_with":   "Sunflower Oil",
-    #     "log_label":      "oil → Sunflower Oil",
-    # },
 ]
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# LAYER 2 — DEVANAGARI PREFIX-TREE
-# Safety net for any Devanagari word the dict missed.
-# Number words are already replaced in Layer 1, so 'द' here means Lentils.
+# DEVANAGARI PREFIX-TREE
 # ══════════════════════════════════════════════════════════════════════════════
 
 def _devanagari_prefix_match(word: str) -> str | None:
     w = word.strip("।.,!? \t\n")
     if not w:
         return None
-
     c1 = w[0]
     c2 = w[1] if len(w) > 1 else ""
     c3 = w[2] if len(w) > 2 else ""
@@ -428,20 +414,17 @@ def _devanagari_prefix_match(word: str) -> str | None:
     if c1 == "न":  return "Salt"
     if c1 == "म":  return "Flour"
     if c1 == "व":  return "Turmeric"
-
     if c1 == "च":
-        if c2 == "ा":  return "Rice"
+        if c2 == "ा":     return "Rice"
         if c2 == "ि":
-            if c3 == "न":  return "Sugar"
+            if c3 == "न": return "Sugar"
             return "Beaten_Rice"
         return "Rice"
-
     if c1 == "ब":
         if c2 == "े":  return "Turmeric"
         if c2 == "ि":  return "Biscuits"
         if c2 == "ढ":  return "Add"
         if c2 == "ा":  return "Check"
-
     return None
 
 
@@ -461,38 +444,31 @@ class WhisperService:
 
     def _clean(self, text: str) -> tuple[str, int]:
         """
-        Full cleaning pipeline:
-          Step 0: Devanagari numeral chars → Arabic  (१० → 10, infinite numbers)
-          Step 1: Normalise punctuation
-          Step 2: Layer 1 dict (longest key first)
-          Step 3: Layer 2 prefix-tree for remaining Devanagari
-          Step 4: Rebuild with canonical casing
-          Step 5: Deduplicate repeated action tokens
-          Step 6: Synonym disambiguation (generic biscuit → Digestive Biscuit)
-          Step 7: Extract quantity (first integer token)
+        Returns (cleaned_text, quantity).
 
-        Returns
-        -------
-        (cleaned_text: str, quantity: int)
-            quantity = 0 when no number was spoken.
+        Biscuit routing guaranteed:
+          "tiger biscuit"     → Tiger Biscuit     (Step 2 dict, multi-word)
+          "digestive biscuit" → Digestive Biscuit (Step 2 dict, multi-word)
+          "biscuit" alone     → Digestive Biscuit (Step 6 synonym rule)
         """
 
-        # ── Step 0: Devanagari digits → Arabic digits ─────────────────────────
+        # Step 0: Devanagari digits → Arabic
         text = _convert_devanagari_numerals(text)
 
-        # ── Step 1: Normalise punctuation ─────────────────────────────────────
+        # Step 1: Normalise punctuation
         for ch in "।.,!?":
             text = text.replace(ch, " ")
 
-        # ── Step 2: Layer 1 exact dict ────────────────────────────────────────
+        # Step 2: Layer-1 exact dict — LONGEST KEY FIRST
+        # Multi-word entries like "tiger biscuit" (13 chars) are processed
+        # before single-word "biscuit" (7 chars) — no special handling needed.
         lowered = text.lower()
-
         for key in sorted(CORRECTIONS.keys(), key=len, reverse=True):
             val     = CORRECTIONS[key]
             lowered = lowered.replace(key.lower(), f" {val.lower()} ")
             text    = text.replace(key, f" {val} ")
 
-        # ── Step 3: Layer 2 prefix-tree for leftover Devanagari ───────────────
+        # Step 3: Devanagari prefix-tree for leftover Devanagari tokens
         tokens   = text.split()
         resolved = []
         for tok in tokens:
@@ -509,11 +485,14 @@ class WhisperService:
 
         lowered = " ".join(resolved)
 
-        # ── Step 4: Rebuild with proper capitalisation ─────────────────────────
+        # Step 4: Rebuild with canonical capitalisation
         final = []
         for w in lowered.split():
             w = w.strip()
             if not w:
+                continue
+            # Drop single stray characters that aren't digits
+            if len(w) == 1 and not w.isdigit():
                 continue
             if w == "beaten_rice":
                 final.append("Beaten_Rice")
@@ -526,7 +505,7 @@ class WhisperService:
             else:
                 final.append(w)
 
-        # ── Step 5: Deduplicate consecutive identical action tokens ───────────
+        # Step 5: Deduplicate consecutive identical action tokens
         deduped = []
         prev    = None
         for w in final:
@@ -538,52 +517,32 @@ class WhisperService:
         result = " ".join(w for w in deduped if w)
         result = " ".join(result.split())
 
-        # ── Step 6: Synonym disambiguation ────────────────────────────────────
-        # Runs AFTER dict/prefix-tree so all tokens are already canonical English.
-        # Replaces generic product words with specific variants when no
-        # variant keyword (e.g. "tiger", "digestive") is present in the string.
-        result_lower = result.lower()
-        result_words = set(result_lower.split())
-
+        # Step 6: Synonym disambiguation
+        # At this point:
+        #   "Tiger Biscuit" / "Digestive Biscuit" already correct (Step 2)
+        #   "Biscuits" (generic) → upgraded to "Digestive Biscuit" here
         for rule in _SYNONYM_RULES:
-            triggers = rule["trigger_tokens"]
-            variants = rule["variant_tokens"]
-            replace  = rule["replace_with"]
-            label    = rule["log_label"]
+            trigger_pat: re.Pattern = rule["trigger_pattern"]
+            guard_pat:   re.Pattern = rule["guard_pattern"]
+            replace:     str        = rule["replace_with"]
+            label:       str        = rule["log_label"]
 
-            if result_words & triggers and not result_words & variants:
-                # Replace every trigger token with the specific product name
-                for trigger in triggers:
-                    # Use word-boundary regex so "biskut" doesn't partially
-                    # match inside a longer token
-                    result = re.sub(
-                        rf"(?i)\b{re.escape(trigger)}\b",
-                        replace,
-                        result,
-                    )
-                result = " ".join(result.split())   # collapse whitespace
-                print(f"   🍪 Synonym: {label}")
-                # Rebuild result_words after replacement so subsequent rules
-                # in the same loop see the updated string
-                result_words = set(result.lower().split())
+            if guard_pat.search(result):
+                print(f"   🛡️  Synonym guard fired — skipping: {label}")
+                continue
 
-        # ── Step 7: Extract quantity ───────────────────────────────────────────
-        # Grab the FIRST standalone integer in the cleaned string.
-        # e.g. "10 packet Digestive Biscuit Remove" → 10
-        # Returns 0 if no number was spoken (e.g. pure CHECK commands).
-        qty_match      = re.search(r"\b(\d+)\b", result)
-        extracted_qty  = int(qty_match.group(1)) if qty_match else 0
+            if trigger_pat.search(result):
+                result = trigger_pat.sub(replace, result)
+                result = " ".join(result.split())
+                print(f"   🍪 Synonym applied: {label}")
+
+        # Step 7: Extract quantity
+        qty_match     = re.search(r"\b(\d+)\b", result)
+        extracted_qty = int(qty_match.group(1)) if qty_match else 0
 
         return result, extracted_qty
 
     def transcribe(self, audio_path: str) -> tuple[str, int]:
-        """
-        Transcribe Nepali audio → (cleaned English-token string, quantity).
-
-        Returns
-        -------
-        (cleaned_text: str, quantity: int)
-        """
         initial_prompt = (
             "chamal daal nun chini tel maida besar anda chiura biskut "
             "digestive biscuit tiger biscuit "
@@ -613,8 +572,6 @@ class WhisperService:
             return "", 0
 
         cleaned, qty = self._clean(raw_text)
-
         print(f"🎙️  RAW     : {raw_text!r}")
         print(f"✅  CLEANED : {cleaned!r}  |  QTY: {qty}")
-
         return cleaned, qty
