@@ -1,7 +1,7 @@
 # Bikri — Final Year Project
 
 ## Overview
-SmartBiz AI is a full-stack intelligent inventory management system for Nepali retail shops. It combines **voice-powered inventory control** (Nepali speech → stock updates) with an **AI-powered business assistant chatbot** — all running locally with no cloud dependency.
+Bikri AI is a full-stack intelligent inventory management system for Nepali retail shops. It combines **voice-powered inventory control** (Nepali speech → stock updates) with an **AI-powered business assistant chatbot** — all running locally with no cloud dependency.
 
 ### Key Features
 - 🎙️ **Voice Inventory Management** — Speak commands in Nepali to add, remove, or check stock
@@ -78,7 +78,7 @@ final-year-project/
 
 ## AI Chatbot Features
 
-The SmartBiz AI chatbot serves three roles:
+The Bikri AI chatbot serves three roles:
 
 ### 📊 Business Analyst
 - Analyze sales trends and identify best/worst sellers
@@ -87,7 +87,7 @@ The SmartBiz AI chatbot serves three roles:
 
 ### 📦 Stock Information Provider
 - Report exact stock levels for any product
-- Alert on low stock (critical < 10 units, warning < 40 units)
+- Alert on low stock using a shared threshold of **40 units**
 - Compare stock across products
 
 ### 🤖 General Assistant
@@ -243,6 +243,9 @@ The SmartBiz AI chatbot serves three roles:
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/api/reports/sales-pdf` | Generate PDF sales report |
+| GET | `/api/reports/sales-data` | Sales summary cards and recent sales rows |
+| GET | `/api/reports/profit-series` | Dynamic daily profit graph data |
+| GET | `/api/reports/product-series` | Dynamic product stock graph data |
 
 ---
 
