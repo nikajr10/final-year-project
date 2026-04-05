@@ -2,42 +2,6 @@
 app/db/models.py
 ================
 SQLAlchemy ORM models for SmartBiz AI Inventory System.
-
-KEY ADDITION — HNSW Index on Product.embedding:
-------------------------------------------------
-HNSW (Hierarchical Navigable Small World) is a graph-based approximate
-nearest-neighbour algorithm built into pgvector.
-
-Without HNSW: PostgreSQL scans ALL rows and computes cosine distance
-              for each one. O(n) — slow as product count grows.
-
-With HNSW:    PostgreSQL navigates a pre-built multi-layer graph,
-              jumping directly to the nearest neighbours. O(log n) —
-              1 million products searched as fast as 1,000.
-
-Parameters explained:
-  m=16              — Each node in the graph connects to 16 neighbours.
-                      Higher = better recall, more memory. 16 is the
-                      standard default for most use cases.
-  ef_construction=64 — Candidate list size when BUILDING the graph.
-                       Higher = more accurate graph, slower to build.
-                       64 is a safe default. Only matters at index build
-                       time, not at query time.
-
-vector_cosine_ops:
-  Tells the HNSW graph to use COSINE DISTANCE as its metric.
-  This is critical — it must match how you query:
-    Product.embedding.cosine_distance(query_vector)
-  
-  WHY cosine for text embeddings:
-  - Only measures the ANGLE between vectors (semantic direction)
-  - Ignores vector magnitude (length of the text doesn't matter)
-  - "Rice Chamal" and "Rice" point in the same semantic direction
-  - Perfect for SBERT embeddings
-
-  If you used euclidean_ops here but cosine_distance() in queries,
-  the HNSW index would be IGNORED by the query planner — slow!
-  They MUST match.
 """
 
 from datetime import datetime
@@ -60,35 +24,28 @@ class Product(Base):
     id            = Column(Integer, primary_key=True, index=True)
     name_nepali   = Column(String,  unique=True, index=True, nullable=False)
     name_english  = Column(String,  nullable=False)
-    unit          = Column(String,  nullable=False)          # kg / pieces / packet / liter
+    unit          = Column(String,  nullable=False)
     current_stock = Column(Float,   default=0.0)
 
-    # 384-dimensional SBERT vector (all-MiniLM-L6-v2 output size)
-    # Stores the combined "name_english name_nepali" embedding
-    # so both English and Nepali queries resolve correctly.
+    # ── NEW: pricing columns ──────────────────────────────────────────────────
+    cost_price    = Column(Float,   default=0.0, nullable=True)   # what you paid per unit
+    selling_price = Column(Float,   default=0.0, nullable=True)   # what you sell per unit
+    # ─────────────────────────────────────────────────────────────────────────
+
+    # 384-dimensional SBERT vector (all-MiniLM-L6-v2)
     embedding = Column(Vector(384))
 
-    # ── HNSW Index ────────────────────────────────────────────────────────────
-    # Attached directly to the table so SQLAlchemy creates it via create_all().
-    # postgresql_using='hnsw'  → use HNSW algorithm (not IVFFlat)
-    # m=16                     → graph connectivity (neighbours per node)
-    # ef_construction=64       → build-time accuracy (higher=better graph)
-    # vector_cosine_ops        → optimise for COSINE distance queries
-    #
-    # After this index exists, the query:
-    #   select(Product).order_by(Product.embedding.cosine_distance(vec)).limit(1)
-    # automatically uses HNSW — no code change needed at query time.
     __table_args__ = (
         Index(
-            "hnsw_product_embedding_idx",       # index name (must be unique in DB)
-            "embedding",                         # column to index
-            postgresql_using="hnsw",             # algorithm
+            "hnsw_product_embedding_idx",
+            "embedding",
+            postgresql_using="hnsw",
             postgresql_with={
-                "m": 16,                         # neighbour connections per node
-                "ef_construction": 64,           # build-time candidate list size
+                "m": 16,
+                "ef_construction": 64,
             },
             postgresql_ops={
-                "embedding": "vector_cosine_ops" # MUST match cosine_distance() queries
+                "embedding": "vector_cosine_ops"
             },
         ),
     )
@@ -103,7 +60,7 @@ class Product(Base):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# VOICE LOG  — audit trail of every voice command received
+# VOICE LOG
 # ══════════════════════════════════════════════════════════════════════════════
 
 class VoiceLog(Base):
@@ -111,13 +68,13 @@ class VoiceLog(Base):
 
     id               = Column(Integer,  primary_key=True, index=True)
     timestamp        = Column(DateTime, default=datetime.utcnow)
-    original_text    = Column(Text)       # cleaned whisper output
-    corrected_intent = Column(String)     # e.g. "ADD 10 Maida"
-    confidence_score = Column(Float)      # 1.0 = exact match, 0.85 = vector match
+    original_text    = Column(Text)
+    corrected_intent = Column(String)
+    confidence_score = Column(Float)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# USER — authentication
+# USER
 # ══════════════════════════════════════════════════════════════════════════════
 
 class User(Base):
@@ -131,7 +88,7 @@ class User(Base):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# TRANSACTION HISTORY — immutable ledger of every stock change
+# TRANSACTION HISTORY
 # ══════════════════════════════════════════════════════════════════════════════
 
 class TransactionHistory(Base):
@@ -142,7 +99,7 @@ class TransactionHistory(Base):
     product_id              = Column(Integer,  ForeignKey("products.id"))
     product_name_english    = Column(String)
     product_name_nepali     = Column(String)
-    action_type             = Column(String)   # strictly "ADD" or "REMOVE"
+    action_type             = Column(String)
     quantity_changed        = Column(Float)
     stock_after_transaction = Column(Float)
     unit                    = Column(String)

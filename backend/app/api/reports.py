@@ -3,38 +3,38 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from datetime import datetime, timedelta
 from app.db.session import get_db
-from app.db.models import TransactionHistory
+from app.db.models import TransactionHistory, Product   # <-- added Product
 from app.core.pdf_service import generate_sales_pdf
 
 router = APIRouter()
 
 @router.get("/sales-pdf")
 def download_sales_report(days: int = 7, db: Session = Depends(get_db)):
-    # Added 30 just in case your frontend accidentally sends 30 instead of 28
-    if days not in [1, 7, 28, 30]: 
+    if days not in [1, 7, 28, 30]:
         raise HTTPException(status_code=400, detail="Invalid duration. Choose 1, 7, 28, or 30 days.")
-        
-    # Using local now() is often safer than utcnow() if your database relies on local server time
+
     target_date = datetime.now() - timedelta(days=days)
-    
-    # FIX 1: Catch all possible terms for a deduction/sale
-    # This prevents the 404 error if your DB saves "DEDUCT" or lowercase "remove"
+
     valid_actions = ["REMOVE", "DEDUCT", "SALE"]
-    
-    logs = db.query(TransactionHistory).filter(
-        func.upper(TransactionHistory.action_type).in_(valid_actions),
-        TransactionHistory.timestamp >= target_date
-    ).order_by(TransactionHistory.timestamp.desc()).all()
-    
-    if not logs:
-        # Prints to your Uvicorn terminal so you can verify the date calculation
+
+    # Join with Product to get cost_price and selling_price
+    results = (
+        db.query(TransactionHistory, Product.cost_price, Product.selling_price)
+        .join(Product, TransactionHistory.product_id == Product.id)
+        .filter(
+            func.upper(TransactionHistory.action_type).in_(valid_actions),
+            TransactionHistory.timestamp >= target_date
+        )
+        .order_by(TransactionHistory.timestamp.desc())
+        .all()
+    )
+
+    if not results:
         print(f"DEBUG: Searched for {valid_actions} after {target_date}. Found 0.")
         raise HTTPException(status_code=404, detail=f"No sales or removals found in the last {days} days.")
-        
-    pdf_bytes = generate_sales_pdf(logs, days)
-    
-    # FIX 2: Added Access-Control-Expose-Headers
-    # This ensures your frontend is allowed to read the attachment and trigger the download prompt
+
+    pdf_bytes = generate_sales_pdf(results, days)
+
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
