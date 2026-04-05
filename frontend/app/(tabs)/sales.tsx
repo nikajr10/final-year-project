@@ -22,6 +22,8 @@ interface SaleItem {
   category: string;
   costPrice: number;
   salePrice: number;
+  quantity?: number;
+  unit?: string;
   status: "Paid" | "Unpaid";
   date?: string;
 }
@@ -97,6 +99,8 @@ function StatCard({
 }
 
 function SaleItemRow({ item }: { item: SaleItem }) {
+  const quantityLabel = item.quantity ? `${item.quantity} ${item.unit ?? ""}`.trim() : null;
+
   return (
     <View className="mb-2.5 flex-row items-center justify-between rounded-xl border border-slate-300 bg-transparent p-3.5">
       <View className="flex-1">
@@ -104,7 +108,7 @@ function SaleItemRow({ item }: { item: SaleItem }) {
           {item.name}
         </Text>
         <Text className="text-[12px] font-normal text-slate-400">
-          {item.category} Rs {item.costPrice}
+          {item.category} {quantityLabel ? `• ${quantityLabel} • ` : "• "}Rs {item.costPrice}/unit
         </Text>
       </View>
       <View className="items-end">

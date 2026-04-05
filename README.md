@@ -1,4 +1,4 @@
-# SmartBiz AI — Final Year Project
+# Bikri — Final Year Project
 
 ## Overview
 SmartBiz AI is a full-stack intelligent inventory management system for Nepali retail shops. It combines **voice-powered inventory control** (Nepali speech → stock updates) with an **AI-powered business assistant chatbot** — all running locally with no cloud dependency.

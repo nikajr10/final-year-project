@@ -19,7 +19,7 @@ type ProfitGraphProps = {
 
 const SVG_WIDTH = 420;
 const SVG_HEIGHT = 320;
-const PADDING = { top: 18, right: 16, bottom: 44, left: 30 };
+const PADDING = { top: 18, right: 16, bottom: 44, left: 36 };
 const PROFIT_REFRESH_INTERVAL_MS = 5000;
 
 function buildYAxisTicks(values: number[], forcedMaxValue?: number) {
@@ -298,19 +298,19 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: "#FFFFFF",
     paddingHorizontal: 0,
-    paddingTop: 18,
+    paddingTop: 12,
     paddingBottom: 8,
   },
   title: {
     color: "#000000",
     fontSize: 24,
     fontWeight: "700",
-    marginBottom: 12,
+    marginBottom: 10,
   },
   feedback: {
     alignItems: "center",
     justifyContent: "center",
-    gap: 10,
+    gap: 8,
   },
   feedbackText: {
     color: "#5B5F68",

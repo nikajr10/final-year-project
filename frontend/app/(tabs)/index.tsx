@@ -6,15 +6,14 @@ import {
   Platform,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   View,
   ActivityIndicator,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { API_URL, FETCH_TIMEOUT_MS } from "../../constants/Config";
-import ProfitGraph from "../components/profitgraph";
-import ProductGraph from "../components/productgraph";
+import Graphs from "../components/graphs";
+import StockAlertButton from "../components/stockalertbutton";
 
 const Microphone = require("../../assets/images/Microphone.svg");
 const Sales = require("../../assets/images/revenue.svg");
@@ -160,16 +159,21 @@ export default function HomeScreen() {
     }
   };
 
+  const openStockAlerts = () => {
+    router.push("/stock-alerts");
+  };
+
   return (
     <KeyboardAvoidingView
       className="flex-1 bg-white mt-14"
       behavior={Platform.select({ ios: "padding", android: undefined })}
     >
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 100 }}>
-        <View style={styles.titleContainer}>
-          <Text className="text-2xl font-semibold mb-6 text-zinc-800">
+        <View className="mb-4 flex-row items-start justify-between gap-4">
+          <Text className="flex-1 pt-2 text-2xl font-semibold text-zinc-800">
             {greeting}, {name}!
           </Text>
+          <StockAlertButton count={stats.lowStockItems.length} onPress={openStockAlerts} />
         </View>
 
         <View className="flex-row justify-between gap-4">
@@ -205,10 +209,10 @@ export default function HomeScreen() {
         </View>
 
         <Pressable
-          className="items-center justify-center pt-8 bg-[#007566]/10 rounded-2xl mt-8"
+          className="items-center justify-center pt-2 bg-[#007566]/10 rounded-2xl mt-8"
           onPress={() => router.push("/(screens)/voice")}
         >
-          <View className="w-full items-center justify-center mb-10">
+          <View className="w-full items-center justify-center mb-6">
             <Image
               source={Microphone}
               style={{ width: 100, height: 100 }}
@@ -216,7 +220,7 @@ export default function HomeScreen() {
             />
           </View>
           <View className="w-full">
-            <View className="mx-6 rounded-xl bg-[#007566] rounded-2xl py-5 items-center mb-6">
+            <View className="mx-6 rounded-xl bg-[#007566] rounded-2xl py-5 items-center mb-4">
               <Text className="font-bold text-white text-base">
                 Tap to Speak
               </Text>
@@ -224,64 +228,9 @@ export default function HomeScreen() {
           </View>
         </Pressable>
 
-        <View className="mt-6">
-          <View className="flex-row justify-between items-center mb-4">
-            <Text className="font-semibold text-lg text-slate-600">
-              Stock Alert
-            </Text>
-            <Pressable className="rounded-3xl bg-slate-200 px-4 py-1">
-              <Text className="text-slate-600 font-bold text-xs">
-                {stats.lowStockItems.length} View All
-              </Text>
-            </Pressable>
-          </View>
-
-          {loading ? (
-            <ActivityIndicator
-              size="large"
-              color="#007566"
-              style={{ marginTop: 20 }}
-            />
-          ) : stats.lowStockItems.length === 0 ? (
-            <View className="p-4 rounded-xl">
-              <Text className="text-[#007566] text-center font-bold">
-                All Stock Levels Good! ✅
-              </Text>
-            </View>
-          ) : (
-            stats.lowStockItems.map((item: any, index: number) => (
-              <View
-                key={index}
-                className="bg-red-100 rounded-xl my-2 p-4 flex-row items-center gap-4"
-              >
-                <Image source={Alertimg} style={{ width: 24, height: 24 }} />
-                <View>
-                  {/* FIX 3: Use item.item and item.item_nepali */}
-                  <Text className="text-base font-bold text-zinc-800">
-                    {item.item} ({item.item_nepali})
-                  </Text>
-                  <Text className="text-xs font-bold text-red-700">
-                    ONLY {item.current_stock} {item.unit} LEFT IN STOCK
-                  </Text>
-                </View>
-              </View>
-            ))
-          )}
-        </View>
-
-<View>
-  <ProfitGraph />
-</View>
-
-<View className="mt-6">
-  <ProductGraph />
-</View>
+<Graphs />
 
       </ScrollView>
     </KeyboardAvoidingView>
   );
 }
-
-const styles = StyleSheet.create({
-  titleContainer: { flexDirection: "row", alignItems: "center", gap: 8 },
-});
