@@ -14,13 +14,59 @@ import {
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { API_URL, FETCH_TIMEOUT_MS } from "../../constants/Config";
 
-const Microphone = require("../../assets/images/Microphone.png");
-const Sales = require("../../assets/images/Sales.png");
-const Inventory = require("../../assets/images/inventory.png");
-const Alertimg = require("../../assets/images/Alert-Danger.png");
+const Microphone = require("../../assets/images/Microphone.svg");
+const Sales = require("../../assets/images/revenue.svg");
+const Inventory = require("../../assets/images/inventory.svg");
+const Alertimg = require("../../assets/images/Alert-Danger.svg");
+
+const GENERAL_GREETINGS = [
+  "Welcome Back",
+  "Hello",
+  "Hi There",
+  "Greetings",
+  "Welcome",
+  "Hello Again",
+  "All Set",
+  "Let's Roll",
+  "Stay Sharp",
+];
+const SESSION_GREETING_KEY = "session_greeting";
+
+function getTimeBasedGreeting(date = new Date()) {
+  const hour = date.getHours();
+
+  if (hour < 12) return "Good Morning";
+  if (hour < 17) return "Good Afternoon";
+  return "Good Evening";
+}
+
+function getRandomGreeting() {
+  const greetingPool = [...GENERAL_GREETINGS, getTimeBasedGreeting()];
+  const randomIndex = Math.floor(Math.random() * greetingPool.length);
+  return greetingPool[randomIndex];
+}
+
+function getGreetingName(value: string | null) {
+  const raw = value?.trim();
+  if (!raw) return "User";
+
+  if (raw.includes("@")) {
+    return "User";
+  }
+
+  const firstChunk = raw
+    .split(/\s+/)
+    .map((part) => part.trim())
+    .filter(Boolean)[0];
+
+  if (!firstChunk) return "User";
+
+  return firstChunk.charAt(0).toUpperCase() + firstChunk.slice(1);
+}
 
 export default function HomeScreen() {
-  const [name] = useState("Admin");
+  const [name, setName] = useState("User");
+  const [greeting, setGreeting] = useState("Welcome Back");
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     totalUnits: 0,
@@ -31,9 +77,36 @@ export default function HomeScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      loadSessionGreeting();
+      loadUserName();
       fetchDashboardData();
     }, []),
   );
+
+  const loadSessionGreeting = async () => {
+    try {
+      const storedGreeting = await AsyncStorage.getItem(SESSION_GREETING_KEY);
+      if (storedGreeting?.trim()) {
+        setGreeting(storedGreeting);
+        return;
+      }
+
+      const nextGreeting = getRandomGreeting();
+      setGreeting(nextGreeting);
+      await AsyncStorage.setItem(SESSION_GREETING_KEY, nextGreeting);
+    } catch {
+      setGreeting("Welcome Back");
+    }
+  };
+
+  const loadUserName = async () => {
+    try {
+      const storedName = await AsyncStorage.getItem("user_name");
+      setName(getGreetingName(storedName));
+    } catch {
+      setName("User");
+    }
+  };
 
   const fetchDashboardData = async () => {
     if (fetchInFlight.current) return;
@@ -93,7 +166,7 @@ export default function HomeScreen() {
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 100 }}>
         <View style={styles.titleContainer}>
           <Text className="text-2xl font-semibold mb-6 text-zinc-800">
-            Good morning, {name}!
+            {greeting}, {name}!
           </Text>
         </View>
 
@@ -108,7 +181,7 @@ export default function HomeScreen() {
             <Text className="text-xl font-bold mb-1 text-zinc-900">
               {stats.totalUnits.toLocaleString()}
             </Text>
-            <Text className="text-xs font-bold text-green-700">
+            <Text className="text-xs font-bold text-[#007566]">
               Physical Units
             </Text>
           </View>
@@ -130,7 +203,7 @@ export default function HomeScreen() {
         </View>
 
         <Pressable
-          className="items-center justify-center pt-8 bg-slate-200 rounded-2xl mt-8"
+          className="items-center justify-center pt-8 bg-[#007566]/10 rounded-2xl mt-8"
           onPress={() => router.push("/(screens)/voice")}
         >
           <View className="w-full items-center justify-center mb-10">
@@ -141,7 +214,7 @@ export default function HomeScreen() {
             />
           </View>
           <View className="w-full">
-            <View className="mx-6 rounded-xl bg-purple-700 py-5 items-center mb-6">
+            <View className="mx-6 rounded-xl bg-[#007566] rounded-2xl py-5 items-center mb-6">
               <Text className="font-bold text-white text-base">
                 Tap to Speak
               </Text>
@@ -164,12 +237,12 @@ export default function HomeScreen() {
           {loading ? (
             <ActivityIndicator
               size="large"
-              color="#7E22CE"
+              color="#007566"
               style={{ marginTop: 20 }}
             />
           ) : stats.lowStockItems.length === 0 ? (
-            <View className="p-4 bg-green-100 rounded-xl">
-              <Text className="text-green-800 text-center font-bold">
+            <View className="p-4 bg-[#007566] rounded-xl">
+              <Text className="text-[#007566] text-center font-bold">
                 All Stock Levels Good! ✅
               </Text>
             </View>

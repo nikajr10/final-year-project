@@ -48,10 +48,12 @@ export default function LoginScreen() {
         // ✅ Login Success
         console.log("✅ Login Successful:", data);
 
-        // FIX: Save the secure JWT Token instead of user_id
-        await AsyncStorage.setItem("access_token", data.access_token);
+        await AsyncStorage.removeItem("session_greeting");
+        await AsyncStorage.multiSet([
+          ["access_token", data.access_token],
+          ["user_name", data.name?.trim() || "User"],
+        ]);
 
-        // FIX: Generic welcome message since backend doesn't send the name here
         Alert.alert("Welcome back!", "You have logged in successfully.");
 
         // Navigate to Home
@@ -81,7 +83,7 @@ export default function LoginScreen() {
           <Text className="text-center text-lg font-semibold tracking-wide text-black-600 dark:text-zinc-400">
             Speech Enabled
           </Text>
-          <Text className="mt-2 text-center text-3xl font-extrabold leading-9 text-purple-700 dark:text-purple-300">
+          <Text className="mt-2 text-center text-3xl font-extrabold leading-9 text-[#007566] dark:text-[#007566]">
             Inventory Management{`\n`}System
           </Text>
 
@@ -116,7 +118,7 @@ export default function LoginScreen() {
             accessibilityRole="button"
             onPress={handleLogin}
             disabled={isSubmitting}
-            className="mt-5 items-center rounded-xl bg-purple-700 py-3"
+            className="mt-5 items-center rounded-xl bg-[#007566] py-3"
             style={({ pressed }) => [
               pressed && { opacity: 0.9 },
               isSubmitting && { opacity: 0.6 },
@@ -252,7 +254,7 @@ export default function LoginScreen() {
 //           <Text className="text-center text-lg font-semibold tracking-wide text-black-600 dark:text-zinc-400">
 //             Speech Enabled
 //           </Text>
-//           <Text className="mt-2 text-center text-3xl font-extrabold leading-9 text-purple-700 dark:text-purple-300">
+//           <Text className="mt-2 text-center text-3xl font-extrabold leading-9 text-[#007566] dark:text-[#007566]">
 //             Inventory Management{`\n`}System
 //           </Text>
 
@@ -294,7 +296,7 @@ export default function LoginScreen() {
 //             accessibilityRole="button"
 //             onPress={handleLogin}
 //             disabled={isSubmitting}
-//             className="mt-5 items-center rounded-xl bg-purple-700 py-3"
+//             className="mt-5 items-center rounded-xl bg-[#007566] py-3"
 //             style={({ pressed }) => [
 //               pressed && { opacity: 0.9 },
 //               isSubmitting && { opacity: 0.6 },

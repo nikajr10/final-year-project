@@ -81,7 +81,11 @@ export default function SignupScreen() {
       const loginData = await loginRes.json();
 
       if (loginRes.ok && loginData.access_token) {
-        await AsyncStorage.setItem("access_token", loginData.access_token);
+        await AsyncStorage.removeItem("session_greeting");
+        await AsyncStorage.multiSet([
+          ["access_token", loginData.access_token],
+          ["user_name", fullName.trim()],
+        ]);
         router.replace("/(tabs)");
       } else {
         // Registered but auto-login failed — send to login screen
@@ -109,7 +113,7 @@ export default function SignupScreen() {
           <Text className="text-center text-sm font-semibold tracking-wide text-zinc-600 dark:text-zinc-400">
             Inventory Management
           </Text>
-          <Text className="mt-2 text-center text-3xl font-extrabold text-purple-700 dark:text-purple-300">
+          <Text className="mt-2 text-center text-3xl font-extrabold text-[#007566] dark:text-[#007566]">
             Sign Up
           </Text>
 
@@ -155,7 +159,7 @@ export default function SignupScreen() {
           <Pressable
             onPress={handleSignup}
             disabled={isSubmitting}
-            className="mt-6 items-center rounded-xl bg-purple-700 py-3"
+            className="mt-6 items-center rounded-xl bg-[#007566] py-3"
             style={({ pressed }) => [
               pressed && { opacity: 0.9 },
               isSubmitting && { opacity: 0.6 },

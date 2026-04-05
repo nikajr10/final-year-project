@@ -31,6 +31,27 @@ export default function InventoryScreen() {
   const [error, setError] = useState<string | null>(null);
   const fetchInFlight = useRef(false);
 
+  const normalizeSearchValue = (value: string) =>
+    value
+      .normalize("NFC")
+      .trim()
+      .toLocaleLowerCase()
+      .replace(/\s+/g, " ");
+
+  const matchesSearch = (product: Product, query: string) => {
+    const normalizedQuery = normalizeSearchValue(query);
+
+    if (!normalizedQuery) return true;
+
+    const englishName = normalizeSearchValue(product.item || "");
+    const nepaliName = normalizeSearchValue(product.item_nepali || "");
+
+    return (
+      englishName.includes(normalizedQuery) ||
+      nepaliName.includes(normalizedQuery)
+    );
+  };
+
   const fetchProducts = async (isRefresh = false) => {
     if (fetchInFlight.current) return;
     fetchInFlight.current = true;
@@ -61,7 +82,13 @@ export default function InventoryScreen() {
         // FIX 2: Extract data.inventory
         const inventoryList = data.inventory;
         setProducts(inventoryList);
-        setFilteredProducts(inventoryList);
+        setFilteredProducts(
+          search.trim()
+            ? inventoryList.filter((product: Product) =>
+                matchesSearch(product, search),
+              )
+            : inventoryList,
+        );
       } else {
         setError("Failed to load inventory.");
       }
@@ -85,32 +112,13 @@ export default function InventoryScreen() {
     }, []),
   );
 
-  function matchesSearch(p: Product, text: string) {
-    const q = text.toUpperCase();
-    return (
-      p.item.toUpperCase().includes(q) ||
-      p.item_nepali.toUpperCase().includes(q)
-    );
-  }
-
   const handleSearch = (text: string) => {
     setSearch(text);
-    if (text) {
-      const newData = products.filter((p) => {
-        // FIX 3: Search using the correct keys
-        const itemData = p.item ? p.item.toUpperCase() : "";
-        const itemDataNepali = p.item_nepali ? p.item_nepali : "";
-        const textData = text.toUpperCase();
-
-        return (
-          itemData.indexOf(textData) > -1 ||
-          itemDataNepali.indexOf(textData) > -1
-        );
-      });
-      setFilteredProducts(newData);
-    } else {
-      setFilteredProducts(products);
-    }
+    setFilteredProducts(
+      text.trim()
+        ? products.filter((product) => matchesSearch(product, text))
+        : products,
+    );
   };
 
   const renderItem = ({ item }: { item: Product }) => {
@@ -164,15 +172,15 @@ export default function InventoryScreen() {
         </Text>
         <Pressable
           onPress={() => fetchProducts(false)}
-          className="rounded-full bg-purple-100 px-4 py-1"
+          className="rounded-full bg-[#007566]/10 px-4 py-1"
         >
-          <Text className="text-purple-700 font-bold text-xs">Refresh</Text>
+          <Text className="text-[#007566] font-bold text-xs">Refresh</Text>
         </Pressable>
       </View>
 
       {loading ? (
         <View className="flex-1 justify-center items-center">
-          <ActivityIndicator size="large" color="#7E22CE" />
+          <ActivityIndicator size="large" color="#007566" />
           <Text className="mt-2 text-slate-400">Loading Inventory...</Text>
         </View>
       ) : error ? (
@@ -180,7 +188,7 @@ export default function InventoryScreen() {
           <Text className="text-red-600 text-center font-semibold">{error}</Text>
           <Pressable
             onPress={() => fetchProducts()}
-            className="mt-4 bg-purple-700 px-6 py-3 rounded-xl"
+            className="mt-4 bg-[#007566] px-6 py-3 rounded-xl"
           >
             <Text className="text-white font-bold">Retry</Text>
           </Pressable>

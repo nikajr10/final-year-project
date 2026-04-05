@@ -9,8 +9,8 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
+  Linking,
 } from "react-native";
-import * as WebBrowser from "expo-web-browser";
 import { API_URL } from "../../constants/Config";
 import { ArrowUpRight } from "lucide-react-native";
 
@@ -36,33 +36,29 @@ interface ReportItem {
 
 // ─── Mock Reports ─────────────────────────────────────────────────────────────
 
-const REPORTS: ReportItem[] = [
+const REPORTS: Omit<ReportItem, "generatedAt">[] = [
   {
     id: "1",
     title: "Daily Report",
     subtitle: "Last 1 day",
-    generatedAt: "Generated today",
     days: 1,
   },
   {
     id: "2",
     title: "Weekly Report",
     subtitle: "Last 7 days",
-    generatedAt: "Generated fresh",
     days: 7,
   },
   {
     id: "3",
     title: "Monthly Report",
     subtitle: "Last 28 days",
-    generatedAt: "Generated fresh",
     days: 28,
   },
   {
     id: "4",
-    title: "Monthly Report",
+    title: "30-Day Report",
     subtitle: "Last 30 days",
-    generatedAt: "Generated fresh",
     days: 30,
   },
 ];
@@ -82,16 +78,16 @@ function StatCard({
 }) {
   const isPositive = change >= 0;
   return (
-    <View className="flex-1 rounded-2xl bg-white p-4 shadow-sm elevation-2">
+    <View className="flex-1 rounded-2xl border border-slate-200 bg-white p-4">
       <View className="mb-1.5 flex-row items-center gap-1.5">
-        <ArrowUpRight size={14} color="#7C3AED" className={isPositive ? "" : "opacity-50"} />
+        <ArrowUpRight size={14} color="#007566" style={{ opacity: isPositive ? 1 : 0.5 }} />
         <Text className="text-[13px] font-medium text-slate-500">{label}</Text>
       </View>
       <Text className="mb-1 text-[22px] font-extrabold text-slate-900">
         Rs {value.toLocaleString()}
       </Text>
       <Text className="text-xs text-slate-500">
-        <Text className={`font-bold ${isPositive ? 'text-green-500' : 'text-red-500'}`}>
+        <Text className={`font-bold ${isPositive ? 'text-[#007566]' : 'text-red-500'}`}>
           {isPositive ? '+' : ''}{change}%
         </Text>{" "}
         {changeLabel}
@@ -102,7 +98,7 @@ function StatCard({
 
 function SaleItemRow({ item }: { item: SaleItem }) {
   return (
-    <View className="mb-2.5 flex-row items-center justify-between rounded-xl bg-white p-3.5 shadow-sm elevation-1">
+    <View className="mb-2.5 flex-row items-center justify-between rounded-xl border border-slate-300 bg-transparent p-3.5">
       <View className="flex-1">
         <Text className="mb-1 text-[14px] font-semibold text-slate-900">
           {item.name}
@@ -115,7 +111,7 @@ function SaleItemRow({ item }: { item: SaleItem }) {
         <Text className="mb-0.5 text-[14px] font-bold text-slate-900">
           Rs {item.salePrice.toLocaleString()}
         </Text>
-        <Text className="text-[12px] font-semibold text-green-500">
+        <Text className="text-[12px] font-semibold text-[#007566]">
           {item.status}
         </Text>
       </View>
@@ -133,8 +129,8 @@ function ReportRow({
   loading: boolean;
 }) {
   return (
-    <View className="mb-2.5 flex-row items-center gap-3 rounded-xl bg-white p-3.5 shadow-sm elevation-1">
-      <View className="h-10 w-10 items-center justify-center rounded-lg bg-purple-100">
+    <View className="mb-2.5 flex-row items-center gap-3 rounded-xl border border-slate-200 bg-white p-3.5">
+      <View className="h-10 w-10 items-center justify-center rounded-lg bg-[#007566]">
         <Text className="text-lg">📄</Text>
       </View>
       <View className="flex-1">
@@ -149,11 +145,12 @@ function ReportRow({
         </Text>
       </View>
       <TouchableOpacity
-        className="rounded-full border-[1.5px] border-purple-600 px-3.5 py-2 opacity-100 disabled:opacity-50"
+        className="rounded-full border-[1.5px] border-green-600 px-3.5 py-2"
         disabled={loading}
+        style={{ opacity: loading ? 0.5 : 1 }}
         onPress={() => onDownload(report)}
       >
-        <Text className="text-[13px] font-semibold text-purple-600">
+        <Text className="text-[13px] font-semibold text-[#007566]">
           {loading ? "Opening..." : "Download"}
         </Text>
       </TouchableOpacity>
@@ -202,7 +199,11 @@ export default function SalesScreen() {
     setDownloadingReportId(report.id);
 
     try {
-      await WebBrowser.openBrowserAsync(url);
+      const supported = await Linking.canOpenURL(url);
+      if (!supported) {
+        throw new Error(`Cannot open URL: ${url}`);
+      }
+      await Linking.openURL(url);
     } catch (error) {
       console.error("Failed to open sales report:", error);
       Alert.alert(
@@ -219,6 +220,11 @@ export default function SalesScreen() {
     14: "Last 14 Days",
     28: "Last Month",
   };
+
+  const reports: ReportItem[] = REPORTS.map((report) => ({
+    ...report,
+    generatedAt: report.days === 1 ? "Generate today's report" : `Generate last ${report.days} days`,
+  }));
 
   return (
     <KeyboardAvoidingView
@@ -240,12 +246,12 @@ export default function SalesScreen() {
             <Pressable
               key={tab}
               onPress={() => setActiveTab(tab)}
-              className={`flex-1 items-center rounded-lg py-2.5 ${activeTab === tab ? "bg-white shadow-sm elevation-2" : ""
+              className={`flex-1 items-center rounded-lg py-2.5 ${activeTab === tab ? "border border-slate-300 bg-[#007566]" : ""
                 }`}
             >
               <Text
                 className={`text-[15px] ${activeTab === tab
-                    ? "font-bold text-purple-600"
+                    ? "font-bold text-white"
                     : "font-medium text-slate-500"
                   }`}
               >
@@ -255,26 +261,27 @@ export default function SalesScreen() {
           ))}
         </View>
 
-        {/* Time Filter Pills */}
-        <View className="mb-5 flex-row gap-2">
-          {([7, 14, 28] as TimeFilter[]).map((days) => (
-            <Pressable
-              key={days}
-              onPress={() => setTimeFilter(days)}
-              className={`rounded-full px-4 py-2 ${timeFilter === days ? "bg-slate-800" : "bg-slate-200"
-                }`}
-            >
-              <Text
-                className={`text-[13px] ${timeFilter === days
-                    ? "font-semibold text-white"
-                    : "font-medium text-slate-500"
+        {activeTab === "Daily Sales" && (
+          <View className="mb-5 flex-row gap-2">
+            {([7, 14, 28] as TimeFilter[]).map((days) => (
+              <Pressable
+                key={days}
+                onPress={() => setTimeFilter(days)}
+                className={`rounded-full px-4 py-2 ${timeFilter === days ? "bg-slate-800" : "bg-slate-200"
                   }`}
               >
-                {timeFilterLabel[days]}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
+                <Text
+                  className={`text-[13px] ${timeFilter === days
+                      ? "font-semibold text-white"
+                      : "font-medium text-slate-500"
+                    }`}
+                >
+                  {timeFilterLabel[days]}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        )}
 
         {/* ── DAILY SALES TAB ── */}
         {activeTab === "Daily Sales" && (
@@ -307,7 +314,7 @@ export default function SalesScreen() {
 
             {/* Items */}
             {loading ? (
-              <ActivityIndicator size="large" color="#7C3AED" className="my-8" />
+              <ActivityIndicator size="large" color="#007566" className="my-8" />
             ) : items.length > 0 ? (
               items.map((item) => (
                 <SaleItemRow key={item.id} item={item} />
@@ -332,7 +339,7 @@ export default function SalesScreen() {
             </View>
 
             {/* Reports */}
-            {REPORTS.map((report) => (
+            {reports.map((report) => (
               <ReportRow
                 key={report.id}
                 report={report}

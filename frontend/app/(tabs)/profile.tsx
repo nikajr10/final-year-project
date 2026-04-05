@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, Image, Pressable, Alert, KeyboardAvoidingView, Platform } from "react-native";
+import { View, Text, Pressable, Alert, KeyboardAvoidingView, Platform } from "react-native";
+import { Image } from "expo-image";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 
-const DummyProfile = require("../../assets/images/Dummy.png");
+const DummyProfile = require("../../assets/images/Dummy.svg");
 
 export default function Profile() {
   const router = useRouter();
@@ -23,7 +24,13 @@ export default function Profile() {
 
   const handleLogout = async () => {
     try {
-      await AsyncStorage.multiRemove(["user_token", "user_name", "user_id"]);
+      await AsyncStorage.multiRemove([
+        "access_token",
+        "user_name",
+        "user_id",
+        "user_token",
+        "session_greeting",
+      ]);
       router.replace("/(auth)/login");
     } catch (error) {
       Alert.alert("Error", "Logout failed. Try again.");
@@ -35,10 +42,17 @@ export default function Profile() {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       className="flex-1 bg-gray-100 px-6"
     >
+      <View className="mt-20">
+              <Text className="font-inter text-3xl font-bold uppercase text-slate-900">
+                Profile
+              </Text>
+            </View>
+
       <View className="mt-20 items-center">
         <Image
           source={DummyProfile}
           style={{ width: 140, height: 140, borderRadius: 70 }}
+          contentFit="cover"
         />
         <Text className="text-2xl font-semibold mt-4">{name}</Text>
         <Text className="text-gray-500 mt-1">Logged in user</Text>

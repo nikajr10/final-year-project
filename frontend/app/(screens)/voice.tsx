@@ -2,20 +2,19 @@ import { router, Stack } from "expo-router";
 import React, { useState, useEffect, useRef } from "react";
 import {
   Image,
-  KeyboardAvoidingView,
   Platform,
   Pressable,
   Text,
   View,
   ActivityIndicator,
   Alert,
+  SafeAreaView,
+  StatusBar,
 } from "react-native";
 import { Audio } from "expo-av";
 import { API_URL } from "../../constants/Config";
 
-// ✅ YOUR BACKEND IP
-
-const Mic = require("../../assets/images/purple_mic.png");
+const Mic = require("../../assets/images/green_mic.svg");
 
 type Decision = {
   action: string;
@@ -27,37 +26,29 @@ type Decision = {
   alert_message: string | null;
 };
 
-const VOICE_TIMEOUT_MS = 15000;
+const VOICE_TIMEOUT_MS = 180000;
 
 export default function Voice() {
-  const [recording, setRecording] = useState<Audio.Recording | null>(null);
+  const [recording, setRecording]     = useState<Audio.Recording | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [statusText, setStatusText]   = useState("Hold the Button...");
+  const [decision, setDecision]       = useState<Decision | null>(null);
+  const [transcription, setTranscription] = useState("Ask about stock or sales");
 
-  const [statusText, setStatusText] = useState("Hold the Button...");
-  const [decision, setDecision] = useState<Decision | null>(null);
-  const [aiResponse, setAiResponse] = useState("Hold the Button...");
-  const [transcription, setTranscription] = useState(
-    "Ask about stock or sales",
-  );
-
-  // Prevent duplicate uploads when user releases/re-presses fast
   const uploadInFlight = useRef(false);
 
+  // ── Permissions ────────────────────────────────────────────────────────────
   useEffect(() => {
     (async () => {
       const { status } = await Audio.requestPermissionsAsync();
-      if (status !== "granted") {
+      if (status !== "granted")
         Alert.alert("Permission missing", "Please allow microphone access.");
-      }
     })();
-
-    return () => {
-      // Clean up on unmount
-      if (recording) recording.stopAndUnloadAsync().catch(() => {});
-    };
+    return () => { if (recording) recording.stopAndUnloadAsync().catch(() => {}); };
   }, []);
 
+  // ── Recording options ──────────────────────────────────────────────────────
   const recordingOptions: Audio.RecordingOptions = {
     android: {
       extension: ".wav",
@@ -77,38 +68,25 @@ export default function Voice() {
       linearPCMIsBigEndian: false,
       linearPCMIsFloat: false,
     },
-    web: {
-      mimeType: "audio/wav",
-      bitsPerSecond: 128000,
-    },
+    web: { mimeType: "audio/wav", bitsPerSecond: 128000 },
   };
 
+  // ── Audio helpers ──────────────────────────────────────────────────────────
   async function cleanupAudio() {
     try {
-      if (recording) {
-        await recording.stopAndUnloadAsync();
-        setRecording(null);
-      }
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: true,
-        playsInSilentModeIOS: true,
-      });
-    } catch {
-      // ignore cleanup errors
-    }
+      if (recording) { await recording.stopAndUnloadAsync(); setRecording(null); }
+      await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
+    } catch {}
   }
 
   async function startRecording() {
     if (isProcessing || uploadInFlight.current) return;
-
     try {
       await cleanupAudio();
       setIsRecording(true);
       setStatusText("Listening...");
       setDecision(null);
-
-      const { recording: newRecording } =
-        await Audio.Recording.createAsync(recordingOptions);
+      const { recording: newRecording } = await Audio.Recording.createAsync(recordingOptions);
       setRecording(newRecording);
     } catch (err) {
       console.error("Failed to start recording", err);
@@ -119,9 +97,7 @@ export default function Voice() {
 
   async function stopRecording() {
     if (!recording || !isRecording) return;
-
     setIsRecording(false);
-
     try {
       await recording.stopAndUnloadAsync();
       const uri = recording.getURI();
@@ -146,11 +122,7 @@ export default function Voice() {
 
     try {
       const formData = new FormData();
-      formData.append("file", {
-        uri,
-        name: "voice_command.wav",
-        type: "audio/wav",
-      } as any);
+      formData.append("file", { uri, name: "voice_command.wav", type: "audio/wav" } as any);
 
       const response = await fetch(`${API_URL}/process-voice`, {
         method: "POST",
@@ -162,19 +134,15 @@ export default function Voice() {
       const data = await response.json();
 
       if (response.ok && data.status === "success") {
-        // Build a human-readable status line from the actual backend fields
-        const msg =
-          `${data.action}: ${data.item} (${data.item_nepali})\n` +
-          `Stock now: ${data.new_stock} ${data.unit}`;
-        setStatusText(msg);
+        setStatusText(`${data.action}: ${data.item} (${data.item_nepali})\nStock now: ${data.new_stock} ${data.unit}`);
         setTranscription(data.transcription ? `"${data.transcription}"` : "—");
         setDecision({
-          action:       data.action,
-          item:         data.item,
-          item_nepali:  data.item_nepali,
-          qty_changed:  data.qty_changed,
-          new_stock:    data.new_stock,
-          unit:         data.unit,
+          action:        data.action,
+          item:          data.item,
+          item_nepali:   data.item_nepali,
+          qty_changed:   data.qty_changed,
+          new_stock:     data.new_stock,
+          unit:          data.unit,
           alert_message: data.alert_message ?? null,
         });
       } else {
@@ -183,11 +151,11 @@ export default function Voice() {
       }
     } catch (error: any) {
       clearTimeout(timer);
-      if (error?.name === "AbortError") {
-        setStatusText("Request timed out. Please try again.");
-      } else {
-        setStatusText("Cannot connect to server.");
-      }
+      setStatusText(
+        error?.name === "AbortError"
+          ? "Request timed out. Please try again."
+          : "Cannot connect to server."
+      );
       console.error("Upload failed:", error);
     } finally {
       setIsProcessing(false);
@@ -195,25 +163,31 @@ export default function Voice() {
     }
   }
 
+  // ── Derived state (only dynamic values that can't be static className) ─────
+  const holdLabel = isProcessing
+    ? "Please Wait..."
+    : isRecording
+    ? "Release to Send"
+    : "Hold to Speak";
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // RENDER
+  // ══════════════════════════════════════════════════════════════════════════
+
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
+      <StatusBar barStyle="light-content" backgroundColor="#007566" />
 
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.select({ ios: "padding", android: undefined })}
-      >
-        <KeyboardAvoidingView
-          style={{ flex: 1, backgroundColor: "#7E22CE", padding: 24 }}
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-        >
-          <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+      <SafeAreaView className="flex-1 bg-[#007566]">
+        <View className="flex-1 bg-[#007566] px-6 pt-4">
+
+          {/* ── Centre content ─────────────────────────────────────────────── */}
+          <View className="flex-1 items-center justify-center">
+
+            {/* Mic orb */}
             <View
-              style={{
-                padding: 40,
-                borderRadius: 9999,
-                backgroundColor: isRecording ? "#FEE2E2" : "#F5F3FF",
-              }}
+              className={`p-10 rounded-full ${isRecording ? "bg-[#58CEAD]" : "bg-[#4BB5A3]"}`}
             >
               <Image
                 source={Mic}
@@ -222,111 +196,111 @@ export default function Voice() {
               />
             </View>
 
-            <Text
-              style={{
-                fontSize: 22,
-                fontWeight: "bold",
-                marginTop: 40,
-                color: "white",
-                textAlign: "center",
-              }}
-            >
+            {/* Status */}
+            <Text className="text-[22px] font-bold mt-10 text-white text-center">
               {isProcessing ? "Thinking..." : statusText}
             </Text>
 
-            <Text
-              style={{
-                color: "#E9D5FF",
-                fontWeight: "500",
-                marginTop: 8,
-                textAlign: "center",
-                paddingHorizontal: 16,
-                fontStyle: "italic",
-              }}
-            >
+            {/* Transcription */}
+            <Text className="text-[#CCFBF1] font-medium mt-2 text-center px-4 italic">
               {transcription}
             </Text>
 
+            {/* Decision card */}
             {decision && (
-              <View className="mt-4 bg-white p-4 rounded-xl w-full">
-                <Text className="text-gray-700 font-semibold text-center mb-2">
+              <View className="mt-4 bg-white rounded-2xl p-4 w-full elevation-4">
+
+                <Text className="text-gray-700 font-bold text-center text-sm mb-2.5">
                   ✅ Parsed Decision
                 </Text>
-                <Text className="text-gray-800">Action: {decision.action}</Text>
-                <Text className="text-gray-800">Item: {decision.item}</Text>
-                <Text className="text-gray-800">Quantity: {decision.qty_changed}</Text>
-                <Text className="text-gray-800">Unit: {decision.unit}</Text>
+
+                {/* 3-column stats */}
+                <View className="flex-row gap-2.5">
+                  {[
+                    { label: "Action", value: decision.action },
+                    { label: "Item",   value: decision.item },
+                    {
+                      label: "Qty",
+                      value: `${decision.qty_changed > 0 ? "+" : ""}${decision.qty_changed} ${decision.unit}`,
+                    },
+                  ].map((stat) => (
+                    <View
+                      key={stat.label}
+                      className="flex-1 bg-gray-50 rounded-xl p-2.5 items-center"
+                    >
+                      <Text className="text-[10px] text-gray-400 font-semibold uppercase tracking-wide mb-1">
+                        {stat.label}
+                      </Text>
+                      <Text className="text-[13px] font-bold text-gray-900 text-center">
+                        {stat.value}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+
+                {/* Alert */}
+                {decision.alert_message && (
+                  <View className="mt-2.5 bg-amber-50 rounded-lg p-2.5">
+                    <Text className="text-amber-800 text-xs font-medium">
+                      ⚠️ {decision.alert_message}
+                    </Text>
+                  </View>
+                )}
               </View>
             )}
 
+            {/* Spinner */}
             {isProcessing && (
-              <ActivityIndicator size="large" color="white" className="mt-4" />
+              <ActivityIndicator size="large" color="white" style={{ marginTop: 20 }} />
             )}
           </View>
 
-          {/* Hold to Speak */}
-          <View style={{ marginBottom: 24 }}>
+          {/* ── Buttons ────────────────────────────────────────────────────── */}
+          <View className={`${Platform.OS === "android" ? "mb-5" : "mb-2"}`}>
+
+            {/* Hold to Speak
+                – default:   white bg, teal border, teal text
+                – recording: red bg,   red border,  white text
+                – processing: light teal bg, dimmed              */}
             <Pressable
               disabled={isProcessing}
               onPressIn={startRecording}
               onPressOut={stopRecording}
               style={({ pressed }) => ({
-                opacity: pressed || isProcessing ? 0.8 : 1,
-                transform: [{ scale: pressed ? 0.95 : 1 }],
-                marginHorizontal: 24,
-                paddingVertical: 16,
-                borderRadius: 16,
-                backgroundColor: isRecording ? "#EF4444" : "white",
-                shadowColor: "#000",
-                shadowOpacity: 0.15,
-                shadowRadius: 8,
-                elevation: 4,
-                alignItems: "center",
+                opacity: isProcessing ? 0.7 : pressed ? 0.9 : 1,
+                transform: [{ scale: pressed ? 0.98 : 1 }],
               })}
+              className={`w-full py-[18px] rounded-2xl border-2 mb-3 items-center justify-center
+                elevation-6
+                ${isProcessing
+                  ? "bg-[#DFF7F3] border-[#007566]"
+                  : isRecording
+                  ? "bg-red-500 border-red-300"
+                  : "bg-white border-[#007566]"
+                }`}
             >
               <Text
-                style={{
-                  fontSize: 18,
-                  fontWeight: "bold",
-                  color: isRecording ? "white" : "#7E22CE",
-                }}
+                className={`text-lg font-extrabold text-center tracking-wide
+                  ${isRecording ? "text-white" : "text-[#007566]"}`}
               >
-                {isProcessing
-                  ? "Please Wait..."
-                  : isRecording
-                    ? "Release to Send"
-                    : "Hold to Speak"}
+                {holdLabel}
               </Text>
             </Pressable>
-          </View>
 
-          {/* Finish */}
-          <View style={{ marginBottom: 32 }}>
+            {/* Finish — transparent with white border */}
             <Pressable
-              style={({ pressed }) => ({
-                opacity: pressed ? 0.8 : 1,
-                marginHorizontal: 24,
-                paddingVertical: 16,
-                borderRadius: 16,
-                borderWidth: 2,
-                borderColor: "white",
-                alignItems: "center",
-              })}
               onPress={() => router.push("/(tabs)")}
+              style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1 })}
+              className="w-full py-4 rounded-2xl border-2 border-white bg-transparent items-center justify-center"
             >
-              <Text
-                className="text-xl font-bold text-white text-center"
-              >
+              <Text className="text-lg font-bold text-white text-center">
                 Finish
               </Text>
             </Pressable>
+
           </View>
-        </KeyboardAvoidingView>
-      </KeyboardAvoidingView>
+        </View>
+      </SafeAreaView>
     </>
   );
-}
-
-function setStatusText(arg0: string) {
-  throw new Error("Function not implemented.");
 }

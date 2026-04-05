@@ -43,10 +43,6 @@ const CustomDarkTheme = {
   },
 };
 
-export const unstable_settings = {
-  anchor: "(tabs)",
-};
-
 export default function RootLayout() {
   const colorScheme = useColorScheme();
 
@@ -83,10 +79,6 @@ export default function RootLayout() {
       <Stack>
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen
-          name="modal"
-          options={{ presentation: "modal", title: "Modal" }}
-        />
       </Stack>
       {/* Set status bar to dark icons if we are in light mode (white background) */}
       <StatusBar style={colorScheme === "dark" ? "light" : "dark"} />

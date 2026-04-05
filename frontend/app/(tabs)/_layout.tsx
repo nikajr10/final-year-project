@@ -1,13 +1,9 @@
 import { Tabs } from "expo-router";
 import React from "react";
 import { MaterialCommunityIcons, Octicons } from "@expo/vector-icons";
-import { HapticTab } from "@/components/haptic-tab";
-import { Colors } from "@/constants/theme";
-import { useColorScheme } from "@/hooks/use-color-scheme";
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
-  const activeColor = "#7F3DFF"; // The specific purple from your 3rd image
+  const activeColor = "#007566";
 
   return (
     <Tabs
@@ -15,7 +11,6 @@ export default function TabLayout() {
         tabBarActiveTintColor: activeColor,
         tabBarInactiveTintColor: "#7E848D",
         headerShown: false,
-        tabBarButton: HapticTab,
         tabBarStyle: {
           height: 70,
           paddingBottom: 10,
