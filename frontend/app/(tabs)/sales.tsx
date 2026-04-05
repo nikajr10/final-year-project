@@ -1,17 +1,18 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   KeyboardAvoidingView,
   Platform,
   Text,
   View,
-  StyleSheet,
   Pressable,
   ScrollView,
   TouchableOpacity,
   Alert,
+  ActivityIndicator,
 } from "react-native";
 import * as WebBrowser from "expo-web-browser";
 import { API_URL } from "../../constants/Config";
+import { ArrowUpRight } from "lucide-react-native";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -22,6 +23,7 @@ interface SaleItem {
   costPrice: number;
   salePrice: number;
   status: "Paid" | "Unpaid";
+  date?: string;
 }
 
 interface ReportItem {
@@ -32,76 +34,35 @@ interface ReportItem {
   days: 1 | 7 | 28 | 30;
 }
 
-// ─── Mock Data ────────────────────────────────────────────────────────────────
+// ─── Mock Reports ─────────────────────────────────────────────────────────────
 
-const MOCK_STATS = {
-  7: { profit: 567, revenue: 2450, profitChange: 12, revenueChange: 12 },
-  14: { profit: 1230, revenue: 5800, profitChange: 8, revenueChange: 9 },
-  28: { profit: 3100, revenue: 14200, profitChange: 5, revenueChange: 7 },
-};
-
-const MOCK_ITEMS: SaleItem[] = [
-  {
-    id: "1",
-    name: "Organic Honey (500g)",
-    category: "GROCERIES",
-    costPrice: 850,
-    salePrice: 1200,
-    status: "Paid",
-  },
-  {
-    id: "2",
-    name: "Raw Almonds (1kg)",
-    category: "GROCERIES",
-    costPrice: 1200,
-    salePrice: 2125,
-    status: "Paid",
-  },
-  {
-    id: "3",
-    name: "Green Tea Box",
-    category: "GROCERIES",
-    costPrice: 95,
-    salePrice: 145,
-    status: "Paid",
-  },
-  {
-    id: "4",
-    name: "Organic Honey (500g)",
-    category: "GROCERIES",
-    costPrice: 60,
-    salePrice: 95,
-    status: "Paid",
-  },
-];
-
-const MOCK_REPORTS: ReportItem[] = [
+const REPORTS: ReportItem[] = [
   {
     id: "1",
     title: "Daily Report",
     subtitle: "Last 1 day",
-    generatedAt: "Generated yesterday",
+    generatedAt: "Generated today",
     days: 1,
   },
   {
     id: "2",
     title: "Weekly Report",
     subtitle: "Last 7 days",
-    generatedAt: "Generated yesterday",
+    generatedAt: "Generated fresh",
     days: 7,
   },
   {
     id: "3",
     title: "Monthly Report",
     subtitle: "Last 28 days",
-    generatedAt: "Generated yesterday",
+    generatedAt: "Generated fresh",
     days: 28,
   },
   {
     id: "4",
     title: "Monthly Report",
     subtitle: "Last 30 days",
-    generatedAt: "Generated a week ago",
+    generatedAt: "Generated fresh",
     days: 30,
   },
 ];
@@ -119,16 +80,21 @@ function StatCard({
   change: number;
   changeLabel: string;
 }) {
+  const isPositive = change >= 0;
   return (
-    <View style={styles.statCard}>
-      <View style={styles.statCardHeader}>
-        {/* Trend icon placeholder */}
-        <Text style={styles.statIcon}>↗</Text>
-        <Text style={styles.statLabel}>{label}</Text>
+    <View className="flex-1 rounded-2xl bg-white p-4 shadow-sm elevation-2">
+      <View className="mb-1.5 flex-row items-center gap-1.5">
+        <ArrowUpRight size={14} color="#7C3AED" className={isPositive ? "" : "opacity-50"} />
+        <Text className="text-[13px] font-medium text-slate-500">{label}</Text>
       </View>
-      <Text style={styles.statValue}>Rs {value.toLocaleString()}</Text>
-      <Text style={styles.statChange}>
-        <Text style={styles.statChangePercent}>{change}%</Text> {changeLabel}
+      <Text className="mb-1 text-[22px] font-extrabold text-slate-900">
+        Rs {value.toLocaleString()}
+      </Text>
+      <Text className="text-xs text-slate-500">
+        <Text className={`font-bold ${isPositive ? 'text-green-500' : 'text-red-500'}`}>
+          {isPositive ? '+' : ''}{change}%
+        </Text>{" "}
+        {changeLabel}
       </Text>
     </View>
   );
@@ -136,18 +102,22 @@ function StatCard({
 
 function SaleItemRow({ item }: { item: SaleItem }) {
   return (
-    <View style={styles.itemRow}>
-      <View style={styles.itemLeft}>
-        <Text style={styles.itemName}>{item.name}</Text>
-        <Text style={styles.itemCategory}>
+    <View className="mb-2.5 flex-row items-center justify-between rounded-xl bg-white p-3.5 shadow-sm elevation-1">
+      <View className="flex-1">
+        <Text className="mb-1 text-[14px] font-semibold text-slate-900">
+          {item.name}
+        </Text>
+        <Text className="text-[12px] font-normal text-slate-400">
           {item.category} Rs {item.costPrice}
         </Text>
       </View>
-      <View style={styles.itemRight}>
-        <Text style={styles.itemPrice}>
+      <View className="items-end">
+        <Text className="mb-0.5 text-[14px] font-bold text-slate-900">
           Rs {item.salePrice.toLocaleString()}
         </Text>
-        <Text style={styles.itemStatus}>{item.status}</Text>
+        <Text className="text-[12px] font-semibold text-green-500">
+          {item.status}
+        </Text>
       </View>
     </View>
   );
@@ -163,21 +133,27 @@ function ReportRow({
   loading: boolean;
 }) {
   return (
-    <View style={styles.reportRow}>
-      <View style={styles.reportIcon}>
-        <Text style={styles.reportIconText}>📄</Text>
+    <View className="mb-2.5 flex-row items-center gap-3 rounded-xl bg-white p-3.5 shadow-sm elevation-1">
+      <View className="h-10 w-10 items-center justify-center rounded-lg bg-purple-100">
+        <Text className="text-lg">📄</Text>
       </View>
-      <View style={styles.reportInfo}>
-        <Text style={styles.reportTitle}>{report.title}</Text>
-        <Text style={styles.reportSubtitle}>{report.subtitle}</Text>
-        <Text style={styles.reportGenerated}>{report.generatedAt}</Text>
+      <View className="flex-1">
+        <Text className="text-[14px] font-bold text-slate-900">
+          {report.title}
+        </Text>
+        <Text className="mt-0.5 text-[13px] text-slate-600">
+          {report.subtitle}
+        </Text>
+        <Text className="mt-0.5 text-[11px] text-slate-400">
+          {report.generatedAt}
+        </Text>
       </View>
       <TouchableOpacity
-        style={styles.downloadBtn}
+        className="rounded-full border-[1.5px] border-purple-600 px-3.5 py-2 opacity-100 disabled:opacity-50"
         disabled={loading}
         onPress={() => onDownload(report)}
       >
-        <Text style={styles.downloadBtnText}>
+        <Text className="text-[13px] font-semibold text-purple-600">
           {loading ? "Opening..." : "Download"}
         </Text>
       </TouchableOpacity>
@@ -196,6 +172,30 @@ export default function SalesScreen() {
   const [downloadingReportId, setDownloadingReportId] = useState<string | null>(
     null,
   );
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState({ profit: 0, revenue: 0, profitChange: 0, revenueChange: 0 });
+  const [items, setItems] = useState<SaleItem[]>([]);
+
+  useEffect(() => {
+    const fetchSalesData = async () => {
+      setLoading(true);
+      try {
+        const res = await fetch(`${API_URL}/api/reports/sales-data?days=${timeFilter}`);
+        if (!res.ok) throw new Error("Failed to fetch");
+        const data = await res.json();
+        setStats(data.stats);
+        setItems(data.items);
+      } catch (err) {
+        console.error("Error fetching sales data:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (activeTab === "Daily Sales") {
+      fetchSalesData();
+    }
+  }, [timeFilter, activeTab]);
 
   const handleDownloadReport = async (report: ReportItem) => {
     const url = `${API_URL}/api/reports/sales-pdf?days=${report.days}`;
@@ -214,42 +214,40 @@ export default function SalesScreen() {
     }
   };
 
-  const stats = MOCK_STATS[timeFilter];
-
   const timeFilterLabel: Record<TimeFilter, string> = {
-    7: "Last Day",
-    14: "Last Week",
+    7: "Last Week",
+    14: "Last 14 Days",
     28: "Last Month",
   };
 
   return (
     <KeyboardAvoidingView
-      style={styles.screen}
+      className="flex-1 bg-slate-100"
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 56, paddingBottom: 32 }}
       >
         {/* Title */}
-        <Text style={styles.title}>SALES</Text>
+        <Text className="mb-4 text-[28px] font-extrabold tracking-wide text-slate-900">
+          SALES
+        </Text>
 
         {/* Main Segmented Control */}
-        <View style={styles.segmentContainer}>
+        <View className="mb-4 flex-row rounded-xl bg-slate-200 p-1">
           {(["Daily Sales", "Report"] as MainTab[]).map((tab) => (
             <Pressable
               key={tab}
               onPress={() => setActiveTab(tab)}
-              style={[
-                styles.segmentButton,
-                activeTab === tab && styles.activeSegment,
-              ]}
+              className={`flex-1 items-center rounded-lg py-2.5 ${activeTab === tab ? "bg-white shadow-sm elevation-2" : ""
+                }`}
             >
               <Text
-                style={[
-                  styles.segmentText,
-                  activeTab === tab && styles.activeText,
-                ]}
+                className={`text-[15px] ${activeTab === tab
+                    ? "font-bold text-purple-600"
+                    : "font-medium text-slate-500"
+                  }`}
               >
                 {tab}
               </Text>
@@ -258,21 +256,19 @@ export default function SalesScreen() {
         </View>
 
         {/* Time Filter Pills */}
-        <View style={styles.timeFilterRow}>
+        <View className="mb-5 flex-row gap-2">
           {([7, 14, 28] as TimeFilter[]).map((days) => (
             <Pressable
               key={days}
               onPress={() => setTimeFilter(days)}
-              style={[
-                styles.timePill,
-                timeFilter === days && styles.timePillActive,
-              ]}
+              className={`rounded-full px-4 py-2 ${timeFilter === days ? "bg-slate-800" : "bg-slate-200"
+                }`}
             >
               <Text
-                style={[
-                  styles.timePillText,
-                  timeFilter === days && styles.timePillTextActive,
-                ]}
+                className={`text-[13px] ${timeFilter === days
+                    ? "font-semibold text-white"
+                    : "font-medium text-slate-500"
+                  }`}
               >
                 {timeFilterLabel[days]}
               </Text>
@@ -284,35 +280,41 @@ export default function SalesScreen() {
         {activeTab === "Daily Sales" && (
           <>
             {/* Stat Cards */}
-            <View style={styles.statsRow}>
+            <View className="mb-6 flex-row gap-3">
               <StatCard
                 label="Profit"
                 value={stats.profit}
                 change={stats.profitChange}
-                changeLabel="Today"
+                changeLabel="vs last period"
               />
               <StatCard
                 label="Revenue"
                 value={stats.revenue}
                 change={stats.revenueChange}
-                changeLabel="Today"
+                changeLabel="vs last period"
               />
             </View>
 
             {/* Item List Header */}
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Item lists</Text>
+            <View className="mb-3 flex-row items-center justify-between">
+              <Text className="text-[16px] font-bold text-slate-900">Item lists</Text>
               <TouchableOpacity
                 onPress={() => Alert.alert("View All", "Showing all items")}
               >
-                <Text style={styles.viewAll}>View All</Text>
+                <Text className="text-[13px] font-medium text-slate-500">View All</Text>
               </TouchableOpacity>
             </View>
 
             {/* Items */}
-            {MOCK_ITEMS.map((item) => (
-              <SaleItemRow key={item.id} item={item} />
-            ))}
+            {loading ? (
+              <ActivityIndicator size="large" color="#7C3AED" className="my-8" />
+            ) : items.length > 0 ? (
+              items.map((item) => (
+                <SaleItemRow key={item.id} item={item} />
+              ))
+            ) : (
+              <Text className="my-4 text-center text-slate-500">No items found.</Text>
+            )}
           </>
         )}
 
@@ -320,17 +322,17 @@ export default function SalesScreen() {
         {activeTab === "Report" && (
           <>
             {/* Stock Alert Header */}
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Stock Alert</Text>
+            <View className="mb-3 flex-row items-center justify-between">
+              <Text className="text-[16px] font-bold text-slate-900">Reports</Text>
               <TouchableOpacity
-                onPress={() => Alert.alert("View All", "Showing all alerts")}
+                onPress={() => Alert.alert("View All", "Showing all reports")}
               >
-                <Text style={styles.viewAll}>View All</Text>
+                <Text className="text-[13px] font-medium text-slate-500">View All</Text>
               </TouchableOpacity>
             </View>
 
             {/* Reports */}
-            {MOCK_REPORTS.map((report) => (
+            {REPORTS.map((report) => (
               <ReportRow
                 key={report.id}
                 report={report}
@@ -344,249 +346,3 @@ export default function SalesScreen() {
     </KeyboardAvoidingView>
   );
 }
-
-// ─── Styles ───────────────────────────────────────────────────────────────────
-
-const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: "#F0F4F8",
-  },
-  scrollContent: {
-    paddingHorizontal: 20,
-    paddingTop: 56,
-    paddingBottom: 32,
-  },
-
-  // Title
-  title: {
-    fontSize: 28,
-    fontWeight: "800",
-    color: "#0F172A",
-    marginBottom: 16,
-    letterSpacing: 0.5,
-  },
-
-  // Segmented Control
-  segmentContainer: {
-    flexDirection: "row",
-    backgroundColor: "#E2E8F0",
-    borderRadius: 12,
-    padding: 4,
-    marginBottom: 16,
-  },
-  segmentButton: {
-    flex: 1,
-    paddingVertical: 10,
-    alignItems: "center",
-    borderRadius: 10,
-  },
-  activeSegment: {
-    backgroundColor: "#fff",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  segmentText: {
-    fontSize: 15,
-    color: "#64748B",
-    fontWeight: "500",
-  },
-  activeText: {
-    color: "#7C3AED",
-    fontWeight: "700",
-  },
-
-  // Time Filter
-  timeFilterRow: {
-    flexDirection: "row",
-    gap: 8,
-    marginBottom: 20,
-  },
-  timePill: {
-    paddingVertical: 7,
-    paddingHorizontal: 16,
-    borderRadius: 20,
-    backgroundColor: "#E2E8F0",
-  },
-  timePillActive: {
-    backgroundColor: "#1E293B",
-  },
-  timePillText: {
-    fontSize: 13,
-    color: "#64748B",
-    fontWeight: "500",
-  },
-  timePillTextActive: {
-    color: "#fff",
-    fontWeight: "600",
-  },
-
-  // Stat Cards
-  statsRow: {
-    flexDirection: "row",
-    gap: 12,
-    marginBottom: 24,
-  },
-  statCard: {
-    flex: 1,
-    backgroundColor: "#fff",
-    borderRadius: 14,
-    padding: 14,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    elevation: 2,
-  },
-  statCardHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    marginBottom: 6,
-  },
-  statIcon: {
-    fontSize: 14,
-    color: "#7C3AED",
-  },
-  statLabel: {
-    fontSize: 13,
-    color: "#64748B",
-    fontWeight: "500",
-  },
-  statValue: {
-    fontSize: 22,
-    fontWeight: "800",
-    color: "#0F172A",
-    marginBottom: 4,
-  },
-  statChange: {
-    fontSize: 12,
-    color: "#64748B",
-  },
-  statChangePercent: {
-    color: "#22C55E",
-    fontWeight: "700",
-  },
-
-  // Section Header
-  sectionHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#0F172A",
-  },
-  viewAll: {
-    fontSize: 13,
-    color: "#64748B",
-    fontWeight: "500",
-  },
-
-  // Sale Item Row
-  itemRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 10,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 1,
-  },
-  itemLeft: {
-    flex: 1,
-  },
-  itemName: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#0F172A",
-    marginBottom: 3,
-  },
-  itemCategory: {
-    fontSize: 12,
-    color: "#94A3B8",
-    fontWeight: "400",
-  },
-  itemRight: {
-    alignItems: "flex-end",
-  },
-  itemPrice: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#0F172A",
-    marginBottom: 2,
-  },
-  itemStatus: {
-    fontSize: 12,
-    color: "#22C55E",
-    fontWeight: "600",
-  },
-
-  // Report Row
-  reportRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 10,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 1,
-    gap: 12,
-  },
-  reportIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
-    backgroundColor: "#EDE9FE",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  reportIconText: {
-    fontSize: 18,
-  },
-  reportInfo: {
-    flex: 1,
-  },
-  reportTitle: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#0F172A",
-  },
-  reportSubtitle: {
-    fontSize: 13,
-    color: "#475569",
-    marginTop: 1,
-  },
-  reportGenerated: {
-    fontSize: 11,
-    color: "#94A3B8",
-    marginTop: 2,
-  },
-  downloadBtn: {
-    paddingVertical: 7,
-    paddingHorizontal: 14,
-    borderRadius: 20,
-    borderWidth: 1.5,
-    borderColor: "#7C3AED",
-  },
-  downloadBtnText: {
-    fontSize: 13,
-    color: "#7C3AED",
-    fontWeight: "600",
-  },
-});
