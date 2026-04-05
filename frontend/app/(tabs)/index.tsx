@@ -13,6 +13,8 @@ import {
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { API_URL, FETCH_TIMEOUT_MS } from "../../constants/Config";
+import ProfitGraph from "../components/profitgraph";
+import ProductGraph from "../components/productgraph";
 
 const Microphone = require("../../assets/images/Microphone.svg");
 const Sales = require("../../assets/images/revenue.svg");
@@ -241,7 +243,7 @@ export default function HomeScreen() {
               style={{ marginTop: 20 }}
             />
           ) : stats.lowStockItems.length === 0 ? (
-            <View className="p-4 bg-[#007566] rounded-xl">
+            <View className="p-4 rounded-xl">
               <Text className="text-[#007566] text-center font-bold">
                 All Stock Levels Good! ✅
               </Text>
@@ -266,6 +268,15 @@ export default function HomeScreen() {
             ))
           )}
         </View>
+
+<View>
+  <ProfitGraph />
+</View>
+
+<View className="mt-6">
+  <ProductGraph />
+</View>
+
       </ScrollView>
     </KeyboardAvoidingView>
   );

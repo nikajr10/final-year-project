@@ -54,8 +54,6 @@ export default function LoginScreen() {
           ["user_name", data.name?.trim() || "User"],
         ]);
 
-        Alert.alert("Welcome back!", "You have logged in successfully.");
-
         // Navigate to Home
         router.replace("/(tabs)");
       } else {

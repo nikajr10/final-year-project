@@ -1,7 +1,7 @@
 import { router, Stack } from "expo-router";
+import { Image } from "expo-image";
 import React, { useState, useEffect, useRef } from "react";
 import {
-  Image,
   Platform,
   Pressable,
   Text,
@@ -192,7 +192,7 @@ export default function Voice() {
               <Image
                 source={Mic}
                 style={{ width: 150, height: 150, opacity: isRecording ? 0.5 : 1 }}
-                resizeMode="contain"
+                contentFit="contain"
               />
             </View>
 

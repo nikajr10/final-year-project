@@ -185,7 +185,7 @@ export default function AssistantScreen() {
     {
       id: "welcome",
       role: "ai",
-      text: "👋 Hello! I'm your **SmartBiz AI** assistant.\n\nI can help you with:\n• 📦 Stock levels & low stock alerts\n• 💰 Sales analysis & trends\n• 📈 Business insights & summaries\n• ⭐ Top product performance\n• 🛒 Restocking recommendations\n\nAsk me anything or tap a quick action below!",
+      text: "👋 Hello! I'm your **Bikri AI** assistant.\n\nI can help you with:\n• 📦 Stock levels & low stock alerts\n• 💰 Sales analysis & trends\n• 📈 Business insights & summaries\n• ⭐ Top product performance\n• 🛒 Restocking recommendations\n\nAsk me anything or tap a quick action below!",
       timestamp: new Date(),
     },
   ]);
@@ -295,7 +295,7 @@ export default function AssistantScreen() {
             <View className="w-6 h-6 rounded-full bg-[#007566] items-center justify-center">
               <MaterialIcons name="psychology" size={13} color="white" />
             </View>
-            <Text className="text-[11px] text-gray-500 font-semibold">SmartBiz AI</Text>
+            <Text className="text-[11px] text-gray-500 font-semibold">Bikri AI</Text>
             <Text className="text-[10px] text-gray-400">{time}</Text>
           </View>
         )}
