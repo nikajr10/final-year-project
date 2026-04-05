@@ -12,7 +12,7 @@ import {
   View,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { API_URL, FETCH_TIMEOUT_MS } from "../constants/Config";
+import { API_URL, FETCH_TIMEOUT_MS, LOW_STOCK_THRESHOLD } from "../constants/Config";
 
 const Alertimg = require("../assets/images/Alert-Danger.svg");
 
@@ -53,7 +53,9 @@ export default function StockAlertsScreen() {
 
       if (response.ok && data.status === "success") {
         const products = Array.isArray(data.inventory) ? data.inventory : [];
-        setLowStockItems(products.filter((product: LowStockItem) => product.current_stock < 10));
+        setLowStockItems(
+          products.filter((product: LowStockItem) => product.current_stock < LOW_STOCK_THRESHOLD),
+        );
       } else {
         setLowStockItems([]);
       }

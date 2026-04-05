@@ -11,7 +11,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { API_URL, FETCH_TIMEOUT_MS } from "../../constants/Config";
+import { API_URL, FETCH_TIMEOUT_MS, LOW_STOCK_THRESHOLD } from "../../constants/Config";
 import Graphs from "../components/graphs";
 import StockAlertButton from "../components/stockalertbutton";
 
@@ -137,7 +137,7 @@ export default function HomeScreen() {
         const products = data.inventory;
 
         // Calculate Stats
-        const lowStock = products.filter((p: any) => p.current_stock < 10);
+        const lowStock = products.filter((p: any) => p.current_stock < LOW_STOCK_THRESHOLD);
         const totalItems = products.length;
         const totalPhysicalUnits = products.reduce(
           (sum: number, p: any) => sum + (p.current_stock || 0),

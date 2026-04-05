@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import { useFocusEffect } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { API_URL, FETCH_TIMEOUT_MS } from "../../constants/Config";
+import { API_URL, FETCH_TIMEOUT_MS, LOW_STOCK_THRESHOLD } from "../../constants/Config";
 import Dougnut from "../components/dougnut";
 
 // FIX 3: Match the exact schema your Swagger just showed us
@@ -123,7 +123,7 @@ export default function InventoryScreen() {
   };
 
   const renderItem = ({ item }: { item: Product }) => {
-    const isLowStock = item.current_stock < 10;
+    const isLowStock = item.current_stock < LOW_STOCK_THRESHOLD;
     const stockColor = isLowStock ? "#B91C1C" : "#15803D";
 
     return (
