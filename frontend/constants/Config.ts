@@ -1,5 +1,5 @@
 // Use the IP address of the backend laptop here
-const BACKEND_IP = "192.168.1.92";
+const BACKEND_IP = "192.168.1.94";
 
 // ─── API Base URL ────────────────────────────────────────────────────────────
 // All screens import this to hit the FastAPI backend.
