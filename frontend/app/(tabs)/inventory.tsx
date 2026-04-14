@@ -12,7 +12,8 @@ import {
 } from "react-native";
 import { useFocusEffect } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { API_URL, FETCH_TIMEOUT_MS } from "../../constants/Config";
+import { API_URL, FETCH_TIMEOUT_MS, LOW_STOCK_THRESHOLD } from "../../constants/Config";
+import Dougnut from "../components/dougnut";
 
 // FIX 3: Match the exact schema your Swagger just showed us
 interface Product {
@@ -122,7 +123,7 @@ export default function InventoryScreen() {
   };
 
   const renderItem = ({ item }: { item: Product }) => {
-    const isLowStock = item.current_stock < 10;
+    const isLowStock = item.current_stock < LOW_STOCK_THRESHOLD;
     const stockColor = isLowStock ? "#B91C1C" : "#15803D";
 
     return (
@@ -148,6 +149,26 @@ export default function InventoryScreen() {
     );
   };
 
+  const listHeader = (
+    <>
+      <View className="mb-4 flex-row items-center">
+        <Dougnut />
+      </View>
+
+      <View className="mb-4 flex-row items-center justify-between">
+        <Text className="text-lg font-semibold text-slate-600">
+          Items ({filteredProducts.length})
+        </Text>
+        <Pressable
+          onPress={() => fetchProducts(false)}
+          className="rounded-full bg-[#007566]/10 px-4 py-1"
+        >
+          <Text className="text-xs font-bold text-[#007566]">Refresh</Text>
+        </Pressable>
+      </View>
+    </>
+  );
+
   return (
     <KeyboardAvoidingView
       className="flex-1 bg-[#fff] mt-14 px-4"
@@ -165,18 +186,6 @@ export default function InventoryScreen() {
         placeholder="Search by name (English or Nepali)"
         className="bg-slate-100 border border-slate-300 rounded-xl px-4 py-4 my-6 text-base"
       />
-
-      <View className="flex-row justify-between items-center mb-4">
-        <Text className="font-semibold text-lg text-slate-600">
-          Items ({filteredProducts.length})
-        </Text>
-        <Pressable
-          onPress={() => fetchProducts(false)}
-          className="rounded-full bg-[#007566]/10 px-4 py-1"
-        >
-          <Text className="text-[#007566] font-bold text-xs">Refresh</Text>
-        </Pressable>
-      </View>
 
       {loading ? (
         <View className="flex-1 justify-center items-center">
@@ -198,6 +207,8 @@ export default function InventoryScreen() {
           data={filteredProducts}
           keyExtractor={(_, index) => index.toString()}
           renderItem={renderItem}
+          ListHeaderComponent={listHeader}
+          showsHorizontalScrollIndicator={false}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingBottom: 100 }}
           refreshControl={

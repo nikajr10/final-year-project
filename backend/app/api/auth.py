@@ -29,7 +29,11 @@ def login(user_credentials: UserLogin, db: Session = Depends(get_db)):
         data={"sub": user.email, "role": user.role}, expires_delta=access_token_expires
     )
     
-    return {"access_token": access_token, "token_type": "bearer"}
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "name": user.username or "User",
+    }
 
 # --- NEW: SIGNUP ENDPOINT ---
 @router.post("/register", status_code=status.HTTP_201_CREATED)

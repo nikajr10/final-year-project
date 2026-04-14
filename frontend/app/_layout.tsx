@@ -79,6 +79,7 @@ export default function RootLayout() {
       <Stack>
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="stock-alerts" options={{ headerShown: false }} />
       </Stack>
       {/* Set status bar to dark icons if we are in light mode (white background) */}
       <StatusBar style={colorScheme === "dark" ? "light" : "dark"} />

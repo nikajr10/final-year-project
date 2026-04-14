@@ -7,7 +7,6 @@ import {
   Modal,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   View,
 } from "react-native";
@@ -37,7 +36,8 @@ type ProductGraphProps = {
 
 const SVG_WIDTH = 420;
 const SVG_HEIGHT = 320;
-const PADDING = { top: 18, right: 18, bottom: 44, left: 54 };
+const PADDING = { top: 18, right: 18, bottom: 44, left: 36 };
+const ABSOLUTE_FILL = { position: "absolute" as const, top: 0, right: 0, bottom: 0, left: 0 };
 
 function buildYAxisTicks(values: number[], forcedMaxValue?: number) {
   if (forcedMaxValue) {
@@ -73,7 +73,7 @@ function buildYAxisTicks(values: number[], forcedMaxValue?: number) {
 }
 
 export default function ProductGraph({
-  title = "Products",
+  title = "Product Stock",
   days = 7,
   maxValue,
   height = 340,
@@ -277,38 +277,39 @@ export default function ProductGraph({
   });
 
   return (
-    <View style={styles.card}>
-      <View style={styles.headerRow}>
-        <Text style={styles.title}>{title}</Text>
+    <View className="bg-white pt-[12px] pb-0">
+      <View className="mb-0 flex-row items-center justify-between">
+        <Text className="text-2xl font-bold text-black">{title}</Text>
 
         <Pressable
           onPress={openPicker}
           disabled={!products.length || loading}
-          style={({ pressed }) => [
-            styles.selectorButton,
-            (!products.length || loading) && styles.selectorDisabled,
-            pressed && products.length > 0 && !loading ? styles.selectorPressed : null,
-          ]}
+          className={`min-w-[80px] flex-row items-center justify-between gap-2 rounded-full bg-[#E5EBF4] px-[18px] py-3 ${
+            !products.length || loading ? "opacity-60" : ""
+          }`}
+          style={({ pressed }) =>
+            pressed && products.length > 0 && !loading ? { opacity: 0.82 } : null
+          }
         >
-          <Text numberOfLines={1} style={styles.selectorText}>
+          <Text numberOfLines={1} className="max-w-[126px] text-sm font-bold text-[#475569]">
             {selectedProductName}
           </Text>
-          <ChevronDown color="#475569" size={26} strokeWidth={2.2} />
+          <ChevronDown color="#475569" size={20} strokeWidth={2.2} />
         </Pressable>
       </View>
 
       {loading ? (
-        <View style={[styles.feedback, { height }]}>
+        <View className="items-center justify-center gap-2.5 -mt-4" style={{ height }}>
           <ActivityIndicator size="large" color="#007566" />
-          <Text style={styles.feedbackText}>Loading product data...</Text>
+          <Text className="text-sm font-medium text-[#5B5F68]">Loading product data...</Text>
         </View>
       ) : error ? (
-        <View style={[styles.feedback, { height }]}>
-          <Text style={styles.errorText}>{error}</Text>
+        <View className="items-center justify-center gap-2.5" style={{ height }}>
+          <Text className="px-6 text-center text-sm font-semibold text-[#B42318]">{error}</Text>
         </View>
       ) : !products.length ? (
-        <View style={[styles.feedback, { height }]}>
-          <Text style={styles.feedbackText}>No products found yet.</Text>
+        <View className="items-center justify-center gap-2.5" style={{ height }}>
+          <Text className="text-sm font-medium text-[#5B5F68]">No products found yet.</Text>
         </View>
       ) : (
         <Svg
@@ -411,177 +412,61 @@ export default function ProductGraph({
         onRequestClose={closePicker}
         statusBarTranslucent
       >
-        <View style={styles.modalRoot}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={closePicker}>
-            <Animated.View style={[styles.backdrop, { opacity: backdropOpacity }]} />
+        <View className="flex-1 justify-end">
+          <Pressable className="absolute inset-0" onPress={closePicker}>
+            <Animated.View
+              style={[ABSOLUTE_FILL, { opacity: backdropOpacity, backgroundColor: "#000000" }]}
+            />
           </Pressable>
 
           <Animated.View
+            className="w-full min-h-[90%] max-h-[90%]"
             style={[
-              styles.sheet,
               {
                 transform: [{ translateY: sheetTranslateY }],
               },
             ]}
           >
-            <View style={styles.sheetHandle} />
-            <Text style={styles.sheetTitle}>Select the option below</Text>
+            <View className="flex-1 rounded-t-[30px] bg-white px-5 pt-[14px] pb-7">
+              <View className="mb-[26px] h-2 w-28 self-center rounded-full bg-black" />
+              <Text className="mb-[22px] text-[28px] font-bold text-black">
+                Select the option below
+              </Text>
 
-            <ScrollView
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={styles.sheetList}
-            >
-              {products.map((product) => {
-                const isSelected = product.id === selectedProductId;
+              <ScrollView showsVerticalScrollIndicator={false}>
+                <View className="pb-3">
+                  {products.map((product) => {
+                    const isSelected = product.id === selectedProductId;
 
-                return (
-                  <Pressable
-                    key={product.id}
-                    style={styles.optionRow}
-                    onPress={() => handleSelectProduct(product)}
-                  >
-                    <View style={[styles.radioOuter, isSelected ? styles.radioOuterSelected : null]}>
-                      <View style={[styles.radioInner, isSelected ? styles.radioInnerSelected : null]} />
-                    </View>
-                    <Text style={styles.optionText}>{product.name}</Text>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
+                    return (
+                      <Pressable
+                        key={product.id}
+                        className="mb-[8px] min-h-[54px] flex-row items-center gap-4 px-[18px] bg-[#007566]/10 rounded-2xl"
+                        onPress={() => handleSelectProduct(product)}
+                      >
+                        <View
+                          className={`h-7 w-7 items-center justify-center rounded-full border ${
+                            isSelected ? "border-[#0F766E]" : "border-[#111111]"
+                          }`}
+                        >
+                          <View
+                            className={`h-3 w-3 rounded-full ${
+                              isSelected ? "bg-[#0F766E]" : ""
+                            }`}
+                          />
+                        </View>
+                        <Text className="flex-shrink text-lg font-medium text-black">
+                          {product.name}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </ScrollView>
+            </View>
           </Animated.View>
         </View>
       </Modal>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  card: {
-    backgroundColor: "#FFFFFF",
-    paddingHorizontal: 16,
-    paddingTop: 18,
-    paddingBottom: 8,
-  },
-  headerRow: {
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 12,
-  },
-  title: {
-    color: "#000000",
-    fontSize: 24,
-    fontWeight: "700",
-  },
-  selectorButton: {
-    alignItems: "center",
-    backgroundColor: "#E5EBF4",
-    borderRadius: 28,
-    flexDirection: "row",
-    gap: 10,
-    justifyContent: "space-between",
-    minWidth: 148,
-    paddingHorizontal: 18,
-    paddingVertical: 12,
-  },
-  selectorDisabled: {
-    opacity: 0.6,
-  },
-  selectorPressed: {
-    opacity: 0.82,
-  },
-  selectorText: {
-    color: "#475569",
-    fontSize: 18,
-    fontWeight: "700",
-    maxWidth: 126,
-  },
-  feedback: {
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 10,
-  },
-  feedbackText: {
-    color: "#5B5F68",
-    fontSize: 14,
-    fontWeight: "500",
-  },
-  errorText: {
-    color: "#B42318",
-    fontSize: 14,
-    fontWeight: "600",
-    paddingHorizontal: 24,
-    textAlign: "center",
-  },
-  modalRoot: {
-    flex: 1,
-    justifyContent: "flex-end",
-  },
-  backdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "#000000",
-  },
-  sheet: {
-    backgroundColor: "#FFFFFF",
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
-    maxHeight: "72%",
-    minHeight: "62%",
-    paddingHorizontal: 20,
-    paddingTop: 14,
-    paddingBottom: 28,
-  },
-  sheetHandle: {
-    alignSelf: "center",
-    backgroundColor: "#000000",
-    borderRadius: 999,
-    height: 8,
-    marginBottom: 26,
-    width: 112,
-  },
-  sheetTitle: {
-    color: "#000000",
-    fontSize: 28,
-    fontWeight: "700",
-    marginBottom: 22,
-  },
-  sheetList: {
-    paddingBottom: 12,
-  },
-  optionRow: {
-    alignItems: "center",
-    borderColor: "#1F2937",
-    borderWidth: 1.5,
-    flexDirection: "row",
-    gap: 16,
-    marginBottom: 18,
-    minHeight: 78,
-    paddingHorizontal: 18,
-  },
-  radioOuter: {
-    alignItems: "center",
-    borderColor: "#111111",
-    borderRadius: 999,
-    borderWidth: 3,
-    height: 28,
-    justifyContent: "center",
-    width: 28,
-  },
-  radioOuterSelected: {
-    borderColor: "#0F766E",
-  },
-  radioInner: {
-    borderRadius: 999,
-    height: 12,
-    width: 12,
-  },
-  radioInnerSelected: {
-    backgroundColor: "#0F766E",
-  },
-  optionText: {
-    color: "#000000",
-    flexShrink: 1,
-    fontSize: 18,
-    fontWeight: "500",
-  },
-});

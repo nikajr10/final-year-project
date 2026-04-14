@@ -7,6 +7,7 @@ class UserLogin(BaseModel):
 class Token(BaseModel):
     access_token: str
     token_type: str
+    name: str
 
 # --- NEW: Schema for the Signup Payload ---
 class UserCreate(BaseModel):

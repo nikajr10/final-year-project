@@ -1,5 +1,6 @@
 import { router, Stack } from "expo-router";
 import { Image } from "expo-image";
+import { ArrowLeft } from "lucide-react-native";
 import React, { useState, useEffect, useRef } from "react";
 import {
   Platform,
@@ -37,6 +38,30 @@ export default function Voice() {
   const [transcription, setTranscription] = useState("Ask about stock or sales");
 
   const uploadInFlight = useRef(false);
+
+  const formatDecisionQuantity = (nextDecision: Decision) => {
+    const normalizedAction = nextDecision.action.toLowerCase();
+    const absoluteQuantity = Math.abs(Number(nextDecision.qty_changed ?? 0));
+    const quantityText = `${absoluteQuantity} ${nextDecision.unit}`.trim();
+
+    if (normalizedAction.includes("add")) {
+      return `Added ${quantityText}`;
+    }
+
+    if (
+      normalizedAction.includes("remove") ||
+      normalizedAction.includes("deduct") ||
+      normalizedAction.includes("sale")
+    ) {
+      return `Deducted ${quantityText}`;
+    }
+
+    if (absoluteQuantity === 0) {
+      return "No stock change";
+    }
+
+    return `${nextDecision.qty_changed > 0 ? "+" : "-"}${quantityText}`;
+  };
 
   // ── Permissions ────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -181,6 +206,18 @@ export default function Voice() {
 
       <SafeAreaView className="flex-1 bg-[#007566]">
         <View className="flex-1 bg-[#007566] px-6 pt-4">
+          <View className="mt-12 flex-row items-center">
+            <Pressable
+              accessibilityLabel="Go back"
+              accessibilityRole="button"
+              className="mr-2 h-11 w-11 items-center justify-center rounded-full bg-zinc-100"
+              hitSlop={8}
+              onPress={() => router.back()}
+              style={({ pressed }) => (pressed ? { opacity: 0.8 } : null)}
+            >
+              <ArrowLeft color="#111827" size={22} strokeWidth={2.4} />
+            </Pressable>
+          </View>
 
           {/* ── Centre content ─────────────────────────────────────────────── */}
           <View className="flex-1 items-center justify-center">
@@ -221,7 +258,7 @@ export default function Voice() {
                     { label: "Item",   value: decision.item },
                     {
                       label: "Qty",
-                      value: `${decision.qty_changed > 0 ? "+" : ""}${decision.qty_changed} ${decision.unit}`,
+                      value: formatDecisionQuantity(decision),
                     },
                   ].map((stat) => (
                     <View

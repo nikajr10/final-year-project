@@ -6,6 +6,7 @@ import {
   Pressable,
   FlatList,
   KeyboardAvoidingView,
+  Keyboard,
   Platform,
   ScrollView,
   Animated,
@@ -13,6 +14,7 @@ import {
   SafeAreaView,
 } from "react-native";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { API_URL, CHAT_TIMEOUT_MS } from "../../constants/Config";
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -191,7 +193,28 @@ export default function AssistantScreen() {
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
   const listRef = useRef<FlatList>(null);
+  const tabBarHeight = useBottomTabBarHeight();
+
+  React.useEffect(() => {
+    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+
+    const showSubscription = Keyboard.addListener(showEvent, (event) => {
+      setKeyboardHeight(event.endCoordinates.height);
+      setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 120);
+    });
+
+    const hideSubscription = Keyboard.addListener(hideEvent, () => {
+      setKeyboardHeight(0);
+    });
+
+    return () => {
+      showSubscription.remove();
+      hideSubscription.remove();
+    };
+  }, []);
 
   // ── Send ──────────────────────────────────────────────────────────────────
   const sendMessage = useCallback(
@@ -212,6 +235,7 @@ export default function AssistantScreen() {
       setMessages((prev) => [...prev, userMsg]);
       setInput("");
       setLoading(true);
+      setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 80);
 
       const historyMessages = [...messages, userMsg]
         .filter((m) => m.id !== "welcome")
@@ -322,6 +346,10 @@ export default function AssistantScreen() {
   };
 
   const canSend = !loading && !!input.trim();
+  const isKeyboardVisible = keyboardHeight > 0;
+  const composerOffset = isKeyboardVisible
+    ? Math.max(keyboardHeight - tabBarHeight + 60, 0)
+    : 0;
 
   return (
     <SafeAreaView className="flex-1 bg-white">
@@ -329,7 +357,7 @@ export default function AssistantScreen() {
 
       <KeyboardAvoidingView
         className="flex-1 bg-[#fff] mt-14 px-4"
-              behavior={Platform.OS === "ios" ? "padding" : "height"}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         {/* ── Header ───────────────────────────────────────────────────────── */}
         <View className="flex-row items-center justify-between px-4 pt-3 pb-3 border-b border-gray-100 bg-white">
@@ -368,6 +396,8 @@ export default function AssistantScreen() {
           keyExtractor={(item) => item.id}
           renderItem={renderMessage}
           contentContainerStyle={{ paddingVertical: 12, paddingBottom: 8 }}
+          keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+          keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
           onContentSizeChange={() =>
             listRef.current?.scrollToEnd({ animated: true })
@@ -378,76 +408,82 @@ export default function AssistantScreen() {
         {loading && <TypingIndicator />}
 
         {/* ── Quick Actions ─────────────────────────────────────────────────── */}
-        <View className="border-t border-gray-100">
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{
-              paddingHorizontal: 12,
-              paddingVertical: 10,
-              gap: 8,
-              alignItems: "center",
-            }}
-          >
-            {QUICK_ACTIONS.map((qa) => (
-              <Pressable
-                key={qa.action}
-                onPress={() => sendMessage(undefined, qa.action)}
-                disabled={loading}
-                style={({ pressed }) => ({
-                  backgroundColor: pressed ? "#C7F5ED" : "#E6FFFB",
-                  opacity: loading ? 0.45 : 1,
-                })}
-                className="flex-row items-center border border-[#BFEAE2] rounded-full px-3.5 py-2"
+        <View style={{ marginBottom: composerOffset }}>
+          {!isKeyboardVisible && (
+            <View className="border-t border-gray-100">
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+                contentContainerStyle={{
+                  paddingHorizontal: 12,
+                  paddingVertical: 10,
+                  gap: 8,
+                  alignItems: "center",
+                }}
               >
-                <MaterialIcons
-                  name={qa.icon as any}
-                  size={14}
-                  color="#007566"
-                  style={{ marginRight: 5 }}
-                />
-                <Text className="text-[#007566] text-xs font-semibold">{qa.label}</Text>
-              </Pressable>
-            ))}
-          </ScrollView>
-        </View>
+                {QUICK_ACTIONS.map((qa) => (
+                  <Pressable
+                    key={qa.action}
+                    onPress={() => sendMessage(undefined, qa.action)}
+                    disabled={loading}
+                    style={({ pressed }) => ({
+                      backgroundColor: pressed ? "#C7F5ED" : "#E6FFFB",
+                      opacity: loading ? 0.45 : 1,
+                    })}
+                    className="flex-row items-center border border-[#BFEAE2] rounded-full px-3.5 py-2"
+                  >
+                    <MaterialIcons
+                      name={qa.icon as any}
+                      size={14}
+                      color="#007566"
+                      style={{ marginRight: 5 }}
+                    />
+                    <Text className="text-[#007566] text-xs font-semibold">{qa.label}</Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            </View>
+          )}
 
-        {/* ── Input Row ────────────────────────────────────────────────────── */}
-        <View className="flex-row items-center px-3 py-2.5 border-t border-gray-100 bg-white gap-2">
-          <TextInput
-            value={input}
-            onChangeText={setInput}
-            placeholder="Ask about stock, sales, or business..."
-            placeholderTextColor="#9CA3AF"
-            className="flex-1 bg-gray-50 border border-gray-200 rounded-3xl px-4 text-sm text-gray-800 max-h-[100px]"
-            style={{
-              paddingVertical: Platform.OS === "ios" ? 10 : 8,
-              textAlignVertical: "center",
-            }}
-            multiline
-            maxLength={500}
-            onSubmitEditing={() => sendMessage()}
-            returnKeyType="send"
-            editable={!loading}
-            blurOnSubmit
-          />
-          <Pressable
-            onPress={() => sendMessage()}
-            disabled={!canSend}
-            style={({ pressed }) => ({
-              backgroundColor: canSend ? "#007566" : "#E6FFFB",
-              borderWidth: 1,
-              borderColor: canSend ? "#007566" : "#B7E4DB",
-              opacity: pressed && canSend ? 0.75 : 1,
-            })}
-            className="w-11 h-11 rounded-full items-center justify-center"
-          >
-            <MaterialIcons
-              name="send"
-              size={24}
-              color={canSend ? "white" : "#007566"}
+          {/* ── Input Row ────────────────────────────────────────────────────── */}
+          <View className="flex-row items-center px-3 py-2.5 border-t border-gray-100 bg-white gap-2">
+            <TextInput
+              value={input}
+              onChangeText={setInput}
+              onFocus={() => setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 150)}
+              placeholder="Ask about stock, sales, or business..."
+              placeholderTextColor="#9CA3AF"
+              className="flex-1 bg-gray-50 border border-gray-200 rounded-3xl px-4 text-sm text-gray-800 max-h-[100px]"
+              style={{
+                paddingVertical: Platform.OS === "ios" ? 10 : 8,
+                textAlignVertical: "center",
+              }}
+              multiline
+              maxLength={500}
+              onSubmitEditing={() => sendMessage()}
+              returnKeyType="send"
+              editable={!loading}
+              blurOnSubmit={false}
             />
-          </Pressable>
+            <Pressable
+              onPress={() => sendMessage()}
+              disabled={!canSend}
+              style={({ pressed }) => ({
+                backgroundColor: canSend ? "#007566" : "#E6FFFB",
+                borderWidth: 1,
+                borderColor: canSend ? "#007566" : "#B7E4DB",
+                opacity: pressed && canSend ? 0.75 : 1,
+              })}
+              className="w-11 h-11 rounded-full items-center justify-center"
+            >
+              <MaterialIcons
+                name="send"
+                size={24}
+                color={canSend ? "white" : "#007566"}
+              />
+            </Pressable>
+          </View>
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
