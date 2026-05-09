@@ -469,6 +469,7 @@ export default function AssistantScreen() {
               <Pressable
                 onPress={() => sendMessage()}
                 disabled={!canSend}
+                className="m-auto"
                 style={({ pressed }) => ({
                   flex: 1,
                   alignItems: "center",
