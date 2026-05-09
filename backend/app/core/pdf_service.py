@@ -114,4 +114,4 @@ def generate_sales_pdf(results, days: int) -> bytes:
     pdf.set_font("Arial", 'I', 8)
     pdf.cell(0, 8, f"Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", ln=True, align='L')
 
-    return bytes(pdf.output())  # ← FIXED: fpdf2 now returns bytearray, not string
+    return pdf.output(dest='S').encode('latin-1')
