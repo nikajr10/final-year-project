@@ -454,28 +454,35 @@ export default function AssistantScreen() {
               editable={!loading}
               blurOnSubmit={false}
             />
-            <Pressable
-              onPress={() => sendMessage()}
-              disabled={!canSend}
-              style={({ pressed }) => ({
-                backgroundColor: canSend ? "#007566" : "#E6FFFB",
-                borderWidth: 1,
-                borderColor: canSend ? "#007566" : "#B7E4DB",
-                opacity: pressed && canSend ? 0.75 : 1,
+            <View
+              style={{
                 width: 44,
                 height: 44,
                 borderRadius: 22,
-                alignItems: "center",
-                justifyContent: "center",
+                borderWidth: 1,
+                borderColor: canSend ? "#007566" : "#B7E4DB",
+                backgroundColor: canSend ? "#007566" : "#E6FFFB",
+                overflow: "hidden",
                 flexShrink: 0,
-              })}
+              }}
             >
-              <MaterialIcons
-                name="send"
-                size={22}
-                color={canSend ? "#FFFFFF" : "#007566"}
-              />
-            </Pressable>
+              <Pressable
+                onPress={() => sendMessage()}
+                disabled={!canSend}
+                style={({ pressed }) => ({
+                  flex: 1,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  opacity: pressed && canSend ? 0.75 : 1,
+                })}
+              >
+                <MaterialIcons
+                  name="send"
+                  size={22}
+                  color={canSend ? "#FFFFFF" : "#007566"}
+                />
+              </Pressable>
+            </View>
           </View>
         </View>
       </KeyboardAvoidingView>
