@@ -30,12 +30,14 @@ type Decision = {
 const VOICE_TIMEOUT_MS = 180000;
 
 export default function Voice() {
-  const [recording, setRecording]     = useState<Audio.Recording | null>(null);
+  const [recording, setRecording] = useState<Audio.Recording | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [statusText, setStatusText]   = useState("Hold the Button...");
-  const [decision, setDecision]       = useState<Decision | null>(null);
-  const [transcription, setTranscription] = useState("Ask about stock or sales");
+  const [statusText, setStatusText] = useState("Hold the Button...");
+  const [decision, setDecision] = useState<Decision | null>(null);
+  const [transcription, setTranscription] = useState(
+    "Ask about stock or sales",
+  );
 
   const uploadInFlight = useRef(false);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -71,7 +73,9 @@ export default function Voice() {
       if (status !== "granted")
         Alert.alert("Permission missing", "Please allow microphone access.");
     })();
-    return () => { if (recording) recording.stopAndUnloadAsync().catch(() => {}); };
+    return () => {
+      if (recording) recording.stopAndUnloadAsync().catch(() => {});
+    };
   }, []);
 
   // ── Recording options ──────────────────────────────────────────────────────
@@ -100,8 +104,14 @@ export default function Voice() {
   // ── Audio helpers ──────────────────────────────────────────────────────────
   async function cleanupAudio() {
     try {
-      if (recording) { await recording.stopAndUnloadAsync(); setRecording(null); }
-      await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
+      if (recording) {
+        await recording.stopAndUnloadAsync();
+        setRecording(null);
+      }
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: true,
+        playsInSilentModeIOS: true,
+      });
     } catch {}
   }
 
@@ -112,7 +122,8 @@ export default function Voice() {
       setIsRecording(true);
       setStatusText("Listening...");
       setDecision(null);
-      const { recording: newRecording } = await Audio.Recording.createAsync(recordingOptions);
+      const { recording: newRecording } =
+        await Audio.Recording.createAsync(recordingOptions);
       setRecording(newRecording);
     } catch (err) {
       console.error("Failed to start recording", err);
@@ -157,7 +168,11 @@ export default function Voice() {
 
       try {
         const formData = new FormData();
-        formData.append("file", { uri, name: "voice_command.wav", type: "audio/wav" } as any);
+        formData.append("file", {
+          uri,
+          name: "voice_command.wav",
+          type: "audio/wav",
+        } as any);
 
         const response = await fetch(`${API_URL}/process-voice`, {
           method: "POST",
@@ -169,20 +184,28 @@ export default function Voice() {
         const data = await response.json();
 
         if (response.ok && data.status === "success") {
-          setStatusText(`${data.action}: ${data.item} (${data.item_nepali})\nStock now: ${data.new_stock} ${data.unit}`);
-          setTranscription(data.transcription ? `"${data.transcription}"` : "—");
+          setStatusText(
+            `${data.action}: ${data.item} (${data.item_nepali})\nStock now: ${data.new_stock} ${data.unit}`,
+          );
+          setTranscription(
+            data.transcription ? `"${data.transcription}"` : "—",
+          );
           setDecision({
-            action:        data.action,
-            item:          data.item,
-            item_nepali:   data.item_nepali,
-            qty_changed:   data.qty_changed,
-            new_stock:     data.new_stock,
-            unit:          data.unit,
+            action: data.action,
+            item: data.item,
+            item_nepali: data.item_nepali,
+            qty_changed: data.qty_changed,
+            new_stock: data.new_stock,
+            unit: data.unit,
             alert_message: data.alert_message ?? null,
           });
         } else {
-          setStatusText(data.message || data.error || "Could not process command.");
-          setTranscription(data.transcription ? `"${data.transcription}"` : "—");
+          setStatusText(
+            data.message || data.error || "Could not process command.",
+          );
+          setTranscription(
+            data.transcription ? `"${data.transcription}"` : "—",
+          );
         }
         break;
       } catch (error: any) {
@@ -194,7 +217,7 @@ export default function Voice() {
         setStatusText(
           error?.name === "AbortError"
             ? "Request timed out. Please try again."
-            : "Cannot connect to server."
+            : "Cannot connect to server.",
         );
         console.error("Upload failed:", error);
         break;
@@ -208,7 +231,9 @@ export default function Voice() {
   async function handleFinish() {
     abortControllerRef.current?.abort();
     if (recording) {
-      try { await recording.stopAndUnloadAsync(); } catch {}
+      try {
+        await recording.stopAndUnloadAsync();
+      } catch {}
     }
     uploadInFlight.current = false;
     router.replace("/(tabs)");
@@ -218,8 +243,8 @@ export default function Voice() {
   const holdLabel = isProcessing
     ? "Please Wait..."
     : isRecording
-    ? "Release to Send"
-    : "Hold to Speak";
+      ? "Release to Send"
+      : "Hold to Speak";
 
   // ══════════════════════════════════════════════════════════════════════════
   // RENDER
@@ -247,14 +272,17 @@ export default function Voice() {
 
           {/* ── Centre content ─────────────────────────────────────────────── */}
           <View className="flex-1 items-center justify-center">
-
             {/* Mic orb */}
             <View
               className={`p-10 rounded-full ${isRecording ? "bg-[#58CEAD]" : "bg-[#4BB5A3]"}`}
             >
               <Image
                 source={Mic}
-                style={{ width: 150, height: 150, opacity: isRecording ? 0.5 : 1 }}
+                style={{
+                  width: 150,
+                  height: 150,
+                  opacity: isRecording ? 0.5 : 1,
+                }}
                 contentFit="contain"
               />
             </View>
@@ -272,7 +300,6 @@ export default function Voice() {
             {/* Decision card */}
             {decision && (
               <View className="mt-4 bg-white rounded-2xl p-4 w-full elevation-4">
-
                 <Text className="text-gray-700 font-bold text-center text-sm mb-2.5">
                   ✅ Parsed Decision
                 </Text>
@@ -281,7 +308,7 @@ export default function Voice() {
                 <View className="flex-row gap-2.5">
                   {[
                     { label: "Action", value: decision.action },
-                    { label: "Item",   value: decision.item },
+                    { label: "Item", value: decision.item },
                     {
                       label: "Qty",
                       value: formatDecisionQuantity(decision),
@@ -314,13 +341,16 @@ export default function Voice() {
 
             {/* Spinner */}
             {isProcessing && (
-              <ActivityIndicator size="large" color="white" style={{ marginTop: 20 }} />
+              <ActivityIndicator
+                size="large"
+                color="white"
+                style={{ marginTop: 20 }}
+              />
             )}
           </View>
 
           {/* ── Buttons ────────────────────────────────────────────────────── */}
           <View className={`${Platform.OS === "android" ? "mb-5" : "mb-2"}`}>
-
             {/* Hold to Speak
                 – default:   white bg, teal border, teal text
                 – recording: red bg,   red border,  white text
@@ -335,11 +365,12 @@ export default function Voice() {
               })}
               className={`w-full py-[18px] rounded-2xl border-2 mb-3 items-center justify-center
                 elevation-6
-                ${isProcessing
-                  ? "bg-[#DFF7F3] border-[#007566]"
-                  : isRecording
-                  ? "bg-red-500 border-red-300"
-                  : "bg-white border-[#007566]"
+                ${
+                  isProcessing
+                    ? "bg-[#DFF7F3] border-[#007566]"
+                    : isRecording
+                      ? "bg-red-500 border-red-300"
+                      : "bg-white border-[#007566]"
                 }`}
             >
               <Text
@@ -360,7 +391,6 @@ export default function Voice() {
                 Finish
               </Text>
             </Pressable>
-
           </View>
         </View>
       </SafeAreaView>
