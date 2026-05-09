@@ -14,7 +14,6 @@ import {
   SafeAreaView,
 } from "react-native";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { API_URL, CHAT_TIMEOUT_MS } from "../../constants/Config";
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -193,27 +192,20 @@ export default function AssistantScreen() {
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const listRef = useRef<FlatList>(null);
-  const tabBarHeight = useBottomTabBarHeight();
 
   React.useEffect(() => {
     const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
     const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
 
-    const showSubscription = Keyboard.addListener(showEvent, (event) => {
-      setKeyboardHeight(event.endCoordinates.height);
+    const showSub = Keyboard.addListener(showEvent, () => {
+      setIsKeyboardVisible(true);
       setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 120);
     });
+    const hideSub = Keyboard.addListener(hideEvent, () => setIsKeyboardVisible(false));
 
-    const hideSubscription = Keyboard.addListener(hideEvent, () => {
-      setKeyboardHeight(0);
-    });
-
-    return () => {
-      showSubscription.remove();
-      hideSubscription.remove();
-    };
+    return () => { showSub.remove(); hideSub.remove(); };
   }, []);
 
   // ── Send ──────────────────────────────────────────────────────────────────
@@ -346,10 +338,6 @@ export default function AssistantScreen() {
   };
 
   const canSend = !loading && !!input.trim();
-  const isKeyboardVisible = keyboardHeight > 0;
-  const composerOffset = isKeyboardVisible
-    ? Math.max(keyboardHeight - tabBarHeight + 60, 0)
-    : 0;
 
   return (
     <SafeAreaView className="flex-1 bg-white">
@@ -408,7 +396,7 @@ export default function AssistantScreen() {
         {loading && <TypingIndicator />}
 
         {/* ── Quick Actions ─────────────────────────────────────────────────── */}
-        <View style={{ marginBottom: composerOffset }}>
+        <View>
           {!isKeyboardVisible && (
             <View className="border-t border-gray-100">
               <ScrollView

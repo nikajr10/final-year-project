@@ -38,6 +38,7 @@ export default function Voice() {
   const [transcription, setTranscription] = useState("Ask about stock or sales");
 
   const uploadInFlight = useRef(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const formatDecisionQuantity = (nextDecision: Decision) => {
     const normalizedAction = nextDecision.action.toLowerCase();
@@ -127,7 +128,12 @@ export default function Voice() {
       await recording.stopAndUnloadAsync();
       const uri = recording.getURI();
       setRecording(null);
-      if (uri) uploadAudio(uri);
+      if (uri) {
+        // Android doesn't always flush the audio file immediately after stopAndUnloadAsync.
+        // A short wait prevents the alternating "Network request failed" on consecutive commands.
+        await new Promise<void>((r) => setTimeout(r, 250));
+        uploadAudio(uri);
+      }
     } catch (error) {
       console.error("Stop error:", error);
       setRecording(null);
@@ -142,50 +148,70 @@ export default function Voice() {
     setStatusText("Processing...");
     setDecision(null);
 
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), VOICE_TIMEOUT_MS);
+    const MAX_ATTEMPTS = 2;
 
-    try {
-      const formData = new FormData();
-      formData.append("file", { uri, name: "voice_command.wav", type: "audio/wav" } as any);
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
+      const timer = setTimeout(() => controller.abort(), VOICE_TIMEOUT_MS);
 
-      const response = await fetch(`${API_URL}/process-voice`, {
-        method: "POST",
-        body: formData,
-        signal: controller.signal,
-      });
+      try {
+        const formData = new FormData();
+        formData.append("file", { uri, name: "voice_command.wav", type: "audio/wav" } as any);
 
-      clearTimeout(timer);
-      const data = await response.json();
-
-      if (response.ok && data.status === "success") {
-        setStatusText(`${data.action}: ${data.item} (${data.item_nepali})\nStock now: ${data.new_stock} ${data.unit}`);
-        setTranscription(data.transcription ? `"${data.transcription}"` : "—");
-        setDecision({
-          action:        data.action,
-          item:          data.item,
-          item_nepali:   data.item_nepali,
-          qty_changed:   data.qty_changed,
-          new_stock:     data.new_stock,
-          unit:          data.unit,
-          alert_message: data.alert_message ?? null,
+        const response = await fetch(`${API_URL}/process-voice`, {
+          method: "POST",
+          body: formData,
+          signal: controller.signal,
         });
-      } else {
-        setStatusText(data.message || data.error || "Could not process command.");
-        setTranscription(data.transcription ? `"${data.transcription}"` : "—");
+
+        clearTimeout(timer);
+        const data = await response.json();
+
+        if (response.ok && data.status === "success") {
+          setStatusText(`${data.action}: ${data.item} (${data.item_nepali})\nStock now: ${data.new_stock} ${data.unit}`);
+          setTranscription(data.transcription ? `"${data.transcription}"` : "—");
+          setDecision({
+            action:        data.action,
+            item:          data.item,
+            item_nepali:   data.item_nepali,
+            qty_changed:   data.qty_changed,
+            new_stock:     data.new_stock,
+            unit:          data.unit,
+            alert_message: data.alert_message ?? null,
+          });
+        } else {
+          setStatusText(data.message || data.error || "Could not process command.");
+          setTranscription(data.transcription ? `"${data.transcription}"` : "—");
+        }
+        break;
+      } catch (error: any) {
+        clearTimeout(timer);
+        if (error?.name !== "AbortError" && attempt < MAX_ATTEMPTS) {
+          await new Promise<void>((r) => setTimeout(r, 400));
+          continue;
+        }
+        setStatusText(
+          error?.name === "AbortError"
+            ? "Request timed out. Please try again."
+            : "Cannot connect to server."
+        );
+        console.error("Upload failed:", error);
+        break;
       }
-    } catch (error: any) {
-      clearTimeout(timer);
-      setStatusText(
-        error?.name === "AbortError"
-          ? "Request timed out. Please try again."
-          : "Cannot connect to server."
-      );
-      console.error("Upload failed:", error);
-    } finally {
-      setIsProcessing(false);
-      uploadInFlight.current = false;
     }
+
+    setIsProcessing(false);
+    uploadInFlight.current = false;
+  }
+
+  async function handleFinish() {
+    abortControllerRef.current?.abort();
+    if (recording) {
+      try { await recording.stopAndUnloadAsync(); } catch {}
+    }
+    uploadInFlight.current = false;
+    router.replace("/(tabs)");
   }
 
   // ── Derived state (only dynamic values that can't be static className) ─────
@@ -326,7 +352,7 @@ export default function Voice() {
 
             {/* Finish — transparent with white border */}
             <Pressable
-              onPress={() => router.push("/(tabs)")}
+              onPress={handleFinish}
               style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1 })}
               className="w-full py-4 rounded-2xl border-2 border-white bg-transparent items-center justify-center"
             >
