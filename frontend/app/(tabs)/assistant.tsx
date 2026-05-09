@@ -345,7 +345,7 @@ export default function AssistantScreen() {
 
       <KeyboardAvoidingView
         className="flex-1 bg-[#fff] mt-14 px-4"
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        behavior="padding"
       >
         {/* ── Header ───────────────────────────────────────────────────────── */}
         <View className="flex-row items-center justify-between px-4 pt-3 pb-3 border-b border-gray-100 bg-white">

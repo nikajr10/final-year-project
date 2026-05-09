@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   KeyboardAvoidingView,
   Platform,
@@ -11,7 +11,7 @@ import {
   ActivityIndicator,
   Linking,
 } from "react-native";
-import { API_URL } from "../../constants/Config";
+import { API_URL, FETCH_TIMEOUT_MS } from "../../constants/Config";
 import { ArrowUpRight } from "lucide-react-native";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -174,28 +174,48 @@ export default function SalesScreen() {
     null,
   );
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState(false);
   const [stats, setStats] = useState({ profit: 0, revenue: 0, profitChange: 0, revenueChange: 0 });
   const [items, setItems] = useState<SaleItem[]>([]);
+  const abortRef = useRef<AbortController | null>(null);
+  const fetchInFlight = useRef(false);
+
+  const fetchSalesData = async () => {
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    if (fetchInFlight.current) return;
+    fetchInFlight.current = true;
+    setLoading(true);
+    setFetchError(false);
+
+    const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+    try {
+      const res = await fetch(
+        `${API_URL}/api/reports/sales-data?days=${timeFilter}`,
+        { signal: controller.signal },
+      );
+      clearTimeout(timer);
+      if (!res.ok) throw new Error(`Server error ${res.status}`);
+      const data = await res.json();
+      setStats(data.stats);
+      setItems(data.items);
+    } catch (err: any) {
+      clearTimeout(timer);
+      if (err?.name !== "AbortError") {
+        console.error("Error fetching sales data:", err);
+        setFetchError(true);
+      }
+    } finally {
+      fetchInFlight.current = false;
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchSalesData = async () => {
-      setLoading(true);
-      try {
-        const res = await fetch(`${API_URL}/api/reports/sales-data?days=${timeFilter}`);
-        if (!res.ok) throw new Error("Failed to fetch");
-        const data = await res.json();
-        setStats(data.stats);
-        setItems(data.items);
-      } catch (err) {
-        console.error("Error fetching sales data:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (activeTab === "Daily Sales") {
-      fetchSalesData();
-    }
+    if (activeTab === "Daily Sales") fetchSalesData();
+    return () => { abortRef.current?.abort(); fetchInFlight.current = false; };
   }, [timeFilter, activeTab]);
 
   const handleDownloadReport = async (report: ReportItem) => {
@@ -319,6 +339,16 @@ export default function SalesScreen() {
             {/* Items */}
             {loading ? (
               <ActivityIndicator size="large" color="#007566" className="my-8" />
+            ) : fetchError ? (
+              <View className="my-8 items-center gap-3">
+                <Text className="text-center text-slate-500">Could not load sales data.</Text>
+                <Pressable
+                  onPress={fetchSalesData}
+                  className="rounded-full bg-[#007566] px-5 py-2"
+                >
+                  <Text className="text-sm font-semibold text-white">Retry</Text>
+                </Pressable>
+              </View>
             ) : items.length > 0 ? (
               items.map((item) => (
                 <SaleItemRow key={item.id} item={item} />
