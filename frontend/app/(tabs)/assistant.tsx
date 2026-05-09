@@ -462,13 +462,18 @@ export default function AssistantScreen() {
                 borderWidth: 1,
                 borderColor: canSend ? "#007566" : "#B7E4DB",
                 opacity: pressed && canSend ? 0.75 : 1,
+                width: 44,
+                height: 44,
+                borderRadius: 22,
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
               })}
-              className="w-11 h-11 rounded-full items-center justify-center"
             >
               <MaterialIcons
                 name="send"
-                size={24}
-                color={canSend ? "white" : "#007566"}
+                size={22}
+                color={canSend ? "#FFFFFF" : "#007566"}
               />
             </Pressable>
           </View>
