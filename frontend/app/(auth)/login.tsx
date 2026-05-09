@@ -58,7 +58,10 @@ export default function LoginScreen() {
         router.replace("/(tabs)");
       } else {
         // ❌ Login Failed (Wrong password, etc.)
-        Alert.alert("Login Failed", data.detail || "Invalid credentials.");
+        const errorMsg = Array.isArray(data.detail)
+          ? data.detail.map((e: any) => e.msg || String(e)).join("\n")
+          : data.detail || "Invalid credentials.";
+        Alert.alert("Login Failed", errorMsg);
       }
     } catch (error) {
       console.error("❌ Network Error:", error);
