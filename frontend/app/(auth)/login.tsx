@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { API_URL, FETCH_TIMEOUT_MS } from "../../constants/Config";
+import { getApiErrorMessage, readApiResponse } from "../../utils/apiResponse";
 
 // 🚨 REPLACE WITH YOUR COMPUTER'S LOCAL IP ADDRESS
 // Find it by running `ipconfig` (Windows) or `ipconfig getifaddr en0` (Mac)
@@ -42,7 +43,7 @@ export default function LoginScreen() {
       });
       clearTimeout(timer);
 
-      const data = await response.json();
+      const data = await readApiResponse(response);
 
       if (response.ok) {
         // ✅ Login Success
@@ -58,10 +59,7 @@ export default function LoginScreen() {
         router.replace("/(tabs)");
       } else {
         // ❌ Login Failed (Wrong password, etc.)
-        const errorMsg = Array.isArray(data.detail)
-          ? data.detail.map((e: any) => e.msg || String(e)).join("\n")
-          : data.detail || "Invalid credentials.";
-        Alert.alert("Login Failed", errorMsg);
+        Alert.alert("Login Failed", getApiErrorMessage(data, "Invalid credentials."));
       }
     } catch (error) {
       console.error("❌ Network Error:", error);

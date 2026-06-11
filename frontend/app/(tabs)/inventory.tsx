@@ -13,6 +13,7 @@ import {
 import { useFocusEffect } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { API_URL, FETCH_TIMEOUT_MS, LOW_STOCK_THRESHOLD } from "../../constants/Config";
+import { getApiErrorMessage, readApiResponse } from "../../utils/apiResponse";
 import Dougnut from "../components/dougnut";
 
 // FIX 3: Match the exact schema your Swagger just showed us
@@ -71,13 +72,11 @@ export default function InventoryScreen() {
 
       const response = await fetch(`${API_URL}/stock`, {
         method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
+        headers,
+        signal: controller.signal,
       });
 
-      const data = await response.json();
+      const data = await readApiResponse(response);
 
       if (response.ok && data.status === "success") {
         // FIX 2: Extract data.inventory
@@ -91,7 +90,7 @@ export default function InventoryScreen() {
             : inventoryList,
         );
       } else {
-        setError("Failed to load inventory.");
+        setError(getApiErrorMessage(data, "Failed to load inventory."));
       }
     } catch (err: any) {
       clearTimeout(timer);

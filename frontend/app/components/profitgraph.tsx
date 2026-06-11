@@ -3,6 +3,7 @@ import React, { useCallback, useRef, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import Svg, { Circle, Line, Path, Text as SvgText } from "react-native-svg";
 import { API_URL, FETCH_TIMEOUT_MS } from "../../constants/Config";
+import { getApiErrorMessage, readApiResponse } from "../../utils/apiResponse";
 
 type ProfitPoint = {
   date?: string;
@@ -105,10 +106,11 @@ export default function ProfitGraph({
         });
 
         if (!response.ok) {
-          throw new Error(`Failed to load profit series (${response.status})`);
+          const errorPayload = await readApiResponse(response);
+          throw new Error(getApiErrorMessage(errorPayload, `Failed to load profit series (${response.status})`));
         }
 
-        const payload = await response.json();
+        const payload = await readApiResponse(response);
         setData(
           Array.isArray(payload.series)
             ? payload.series.map((point: ProfitPoint) => ({

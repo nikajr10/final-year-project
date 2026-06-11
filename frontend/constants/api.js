@@ -1,6 +1,6 @@
 // Replace 192.168.1.XX with the ACTUAL IP of the backend laptop
 // You find this by typing 'ipconfig' on the backend laptop.
-export const BASE_URL = "http://192.168.1.92:8000";
+export const BASE_URL = "http://172.20.10.2:8000";
 
 export const API_ROUTES = {
   REGISTER: `${BASE_URL}/auth/register`,

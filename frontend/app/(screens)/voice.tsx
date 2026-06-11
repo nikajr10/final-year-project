@@ -14,6 +14,7 @@ import {
 } from "react-native";
 import { Audio } from "expo-av";
 import { API_URL } from "../../constants/Config";
+import { getApiErrorMessage, readApiResponse } from "../../utils/apiResponse";
 
 const Mic = require("../../assets/images/green_mic.svg");
 
@@ -181,7 +182,7 @@ export default function Voice() {
         });
 
         clearTimeout(timer);
-        const data = await response.json();
+        const data = await readApiResponse(response);
 
         if (response.ok && data.status === "success") {
           setStatusText(
@@ -201,7 +202,7 @@ export default function Voice() {
           });
         } else {
           setStatusText(
-            data.message || data.error || "Could not process command.",
+            getApiErrorMessage(data, "Could not process command."),
           );
           setTranscription(
             data.transcription ? `"${data.transcription}"` : "—",

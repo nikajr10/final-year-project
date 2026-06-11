@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { API_URL, FETCH_TIMEOUT_MS, LOW_STOCK_THRESHOLD } from "../../constants/Config";
+import { readApiResponse } from "../../utils/apiResponse";
 import Graphs from "../components/graphs";
 import StockAlertButton from "../components/stockalertbutton";
 
@@ -124,14 +125,12 @@ export default function HomeScreen() {
 
       const response = await fetch(`${API_URL}/stock`, {
         method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
+        headers,
+        signal: controller.signal,
       });
 
       clearTimeout(timer);
-      const data = await response.json();
+      const data = await readApiResponse(response);
 
       if (response.ok && data.status === "success") {
         const products = data.inventory;

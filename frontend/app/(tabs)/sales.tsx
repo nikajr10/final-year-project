@@ -12,6 +12,7 @@ import {
   Linking,
 } from "react-native";
 import { API_URL, FETCH_TIMEOUT_MS } from "../../constants/Config";
+import { getApiErrorMessage, readApiResponse } from "../../utils/apiResponse";
 import { ArrowUpRight } from "lucide-react-native";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -197,8 +198,8 @@ export default function SalesScreen() {
         { signal: controller.signal },
       );
       clearTimeout(timer);
-      if (!res.ok) throw new Error(`Server error ${res.status}`);
-      const data = await res.json();
+      const data = await readApiResponse(res);
+      if (!res.ok) throw new Error(getApiErrorMessage(data, `Server error ${res.status}`));
       setStats(data.stats);
       setItems(data.items);
     } catch (err: any) {

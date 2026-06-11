@@ -1,4 +1,9 @@
+from pathlib import Path
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+ENV_FILE = Path(__file__).resolve().parents[2] / ".env"
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "SmartBiz AI Backend"
@@ -6,7 +11,7 @@ class Settings(BaseSettings):
     DATABASE_URL: str 
     
     # This tells the class where to find your variables
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+    model_config = SettingsConfigDict(env_file=ENV_FILE, env_file_encoding="utf-8")
 
 # This creates the exact 'settings' object you want to import in other files
 settings = Settings()

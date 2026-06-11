@@ -15,6 +15,7 @@ import {
 } from "react-native";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { API_URL, CHAT_TIMEOUT_MS } from "../../constants/Config";
+import { getApiErrorMessage, readApiResponse } from "../../utils/apiResponse";
 
 // ══════════════════════════════════════════════════════════════════════════════
 // TYPES
@@ -250,13 +251,15 @@ export default function AssistantScreen() {
         });
 
         clearTimeout(timer);
-        const data = await res.json();
+        const data = await readApiResponse(res);
         setMessages((prev) => [
           ...prev,
           {
             id: (Date.now() + 1).toString(),
             role: "ai",
-            text: data.reply ?? "Sorry, I could not generate a response.",
+            text: res.ok
+              ? data.reply ?? "Sorry, I could not generate a response."
+              : getApiErrorMessage(data, "Sorry, I could not generate a response."),
             timestamp: new Date(),
           },
         ]);

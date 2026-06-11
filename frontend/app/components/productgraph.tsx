@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import Svg, { Circle, Line, Path, Text as SvgText } from "react-native-svg";
 import { API_URL, FETCH_TIMEOUT_MS } from "../../constants/Config";
+import { getApiErrorMessage, readApiResponse } from "../../utils/apiResponse";
 
 type ProductOption = {
   id: number;
@@ -127,10 +128,11 @@ export default function ProductGraph({
         });
 
         if (!response.ok) {
-          throw new Error(`Failed to load product series (${response.status})`);
+          const errorPayload = await readApiResponse(response);
+          throw new Error(getApiErrorMessage(errorPayload, `Failed to load product series (${response.status})`));
         }
 
-        const payload = await response.json();
+        const payload = await readApiResponse(response);
         const nextProducts: ProductOption[] = Array.isArray(payload.products)
           ? payload.products.map((product: ProductOption) => ({
               id: Number(product.id),

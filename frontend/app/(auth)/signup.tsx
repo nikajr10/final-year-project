@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { API_URL } from "../../constants/Config";
+import { getApiErrorMessage, readApiResponse } from "../../utils/apiResponse";
 const FETCH_TIMEOUT_MS = 10000;
 
 // ✅ Use your working local IP
@@ -56,10 +57,10 @@ export default function SignupScreen() {
       });
 
       clearTimeout(timer);
-      const data = await res.json();
+      const data = await readApiResponse(res);
 
       if (!res.ok) {
-        Alert.alert("Signup Failed", data.detail || "Something went wrong.");
+        Alert.alert("Signup Failed", getApiErrorMessage(data));
         return;
       }
 
@@ -78,7 +79,7 @@ export default function SignupScreen() {
       });
 
       clearTimeout(loginTimer);
-      const loginData = await loginRes.json();
+      const loginData = await readApiResponse(loginRes);
 
       if (loginRes.ok && loginData.access_token) {
         await AsyncStorage.removeItem("session_greeting");

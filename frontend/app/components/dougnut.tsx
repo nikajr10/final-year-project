@@ -4,6 +4,7 @@ import React, { useCallback, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Text, View } from "react-native";
 import Svg, { Circle, Path, Text as SvgText } from "react-native-svg";
 import { API_URL, FETCH_TIMEOUT_MS } from "../../constants/Config";
+import { readApiResponse } from "../../utils/apiResponse";
 
 type InventoryItem = {
   current_stock: number | string;
@@ -132,7 +133,7 @@ export default function Dougnut() {
         signal: controller.signal,
       });
 
-      const payload = await response.json();
+      const payload = await readApiResponse(response);
 
       if (!response.ok || payload.status !== "success" || !Array.isArray(payload.inventory)) {
         throw new Error("Unable to load stock distribution.");

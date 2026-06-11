@@ -114,4 +114,7 @@ def generate_sales_pdf(results, days: int) -> bytes:
     pdf.set_font("Arial", 'I', 8)
     pdf.cell(0, 8, f"Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", ln=True, align='L')
 
-    return pdf.output(dest='S').encode('latin-1')
+    output = pdf.output(dest='S')
+    if isinstance(output, str):
+        return output.encode('latin-1')
+    return bytes(output)
